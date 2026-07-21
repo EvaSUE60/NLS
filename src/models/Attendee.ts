@@ -15,11 +15,14 @@ export interface IAttendee extends Document {
   checked_in: boolean;
   checked_in_at?: Date;
   checked_in_by?: mongoose.Types.ObjectId;
+  // ✅ ADD THIS - Dorm assignment reference
+  dorm_assignment_id?: mongoose.Types.ObjectId | null;
   dorm_cache: {
     roomNumber?: string | null;
     bedNumber?: number | null;
     floor?: string | null;
-    buildingType?: "men" | "women" | null;
+    buildingType?: string | null;
+    buildingName?: string | null;
   };
   seminars_cache: {
     registered?: string[];
@@ -100,11 +103,18 @@ const AttendeeSchema = new Schema<IAttendee>(
       type: Schema.Types.ObjectId,
       ref: "User",
     },
+    // ✅ ADD THIS - Dorm assignment reference
+    dorm_assignment_id: {
+      type: Schema.Types.ObjectId,
+      ref: "DormAssignment",
+      default: null,
+    },
     dorm_cache: {
       roomNumber: { type: String, trim: true, default: null },
       bedNumber: { type: Number, min: 1, max: 4, default: null },
       floor: { type: String, trim: true, default: null },
       buildingType: { type: String, enum: ["men", "women"], default: null },
+      buildingName: { type: String, trim: true, default: null },
     },
     seminars_cache: {
       registered: [{ type: String, trim: true }],
@@ -136,7 +146,7 @@ AttendeeSchema.index({ gender: 1 });
 AttendeeSchema.index({ checked_in: 1 });
 AttendeeSchema.index({ group_id: 1 });
 AttendeeSchema.index({ payment_status: 1 });
-AttendeeSchema.index({ "dorm_cache.roomNumber": 1 });
+AttendeeSchema.index({ dorm_assignment_id: 1 });
 
 // Virtuals
 AttendeeSchema.virtual("full_name").get(function() {
@@ -167,7 +177,14 @@ AttendeeSchema.set("toJSON", {
       checked_in: ret.checked_in,
       checked_in_at: ret.checked_in_at,
       checked_in_by: ret.checked_in_by,
-      dorm_cache: ret.dorm_cache || { roomNumber: null, bedNumber: null, floor: null, buildingType: null },
+      dorm_assignment_id: ret.dorm_assignment_id,
+      dorm_cache: ret.dorm_cache || { 
+        roomNumber: null, 
+        bedNumber: null, 
+        floor: null, 
+        buildingType: null,
+        buildingName: null 
+      },
       has_room: ret.has_room,
       seminars_cache: ret.seminars_cache || { registered: [], attended: [] },
       group_id: ret.group_id,
