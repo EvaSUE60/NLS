@@ -1,8 +1,8 @@
 // scripts/importAttendees.ts
-import { connectDB, disconnectDB } from "../src/lib/mongodb";
-import Attendee from "../src/models/Attendee";
-import { generateAttendeeId } from "../src/lib/generateId";
-import attendeeData from "../src/data/attendee.json";
+import { connectDB, disconnectDB } from "@/src/lib/mongodb";
+import Attendee from "@/src/models/Attendee";
+import { generateAttendeeId } from "@/src/lib/generateId";
+import attendeeData from "@/src/data/attendee.json";
 
 interface RawAttendee {
   "First Name": string;

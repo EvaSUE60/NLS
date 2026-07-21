@@ -107,6 +107,7 @@ BuildingSchema.virtual("occupancy_rate").get(function() {
 BuildingSchema.set("toJSON", {
   virtuals: true,
   transform: function(_doc, ret) {
+// @ts-ignore
     delete ret.__v;
     return ret;
   },

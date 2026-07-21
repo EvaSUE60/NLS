@@ -132,6 +132,7 @@ RoomSchema.pre("save", async function() {
 RoomSchema.set("toJSON", {
   virtuals: true,
   transform: function(_doc, ret) {
+    // @ts-ignore
     delete ret.__v;
     return ret;
   },
