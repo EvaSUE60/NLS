@@ -142,7 +142,7 @@ RoomSchema.set("toObject", {
   virtuals: true,
 });
 
-// Use mongoose.models to check if model exists, with fallback
+
 const Room = mongoose.models.Room || mongoose.model<IRoom>("Room", RoomSchema);
 
 export default Room;
