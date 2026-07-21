@@ -1,24 +1,48 @@
 // src/lib/generateId.ts
-import Attendee from "@/src/models/Attendee";
+import mongoose from "mongoose";
 
-export function generateUserId(): string {
+// Generic counter for sequential IDs
+let counter = 0;
+
+export function generateId(prefix: string): string {
+  counter++;
   const year = new Date().getFullYear();
-  const random = Math.floor(Math.random() * 10000)
-    .toString()
-    .padStart(4, "0");
-  return `USR-${year}-${random}`;
+  return `${prefix}-${year}-${String(counter).padStart(6, '0')}`;
 }
 
+// Building ID generator
+export function generateBuildingId(): string {
+  return generateId('BLD');
+}
+
+// Room ID generator
+export function generateRoomId(): string {
+  return generateId('RM');
+}
+
+// Assignment ID generator
+export function generateAssignmentId(): string {
+  return generateId('DA');
+}
+
+// User ID generator
+export function generateUserId(): string {
+  return generateId('USR');
+}
+
+// Attendee ID generator
 export async function generateAttendeeId(): Promise<string> {
   const year = new Date().getFullYear();
+  const Attendee = mongoose.models.Attendee;
   
-  // Find the highest sequence number for this year
+  if (!Attendee) {
+    return `NLS-${year}-001`;
+  }
+  
   const lastAttendee = await Attendee.findOne(
     { unique_id: { $regex: `^NLS-${year}-` } },
     { unique_id: 1 }
-  )
-    .sort({ unique_id: -1 })
-    .lean();
+  ).sort({ unique_id: -1 }).lean();
 
   let sequence = 1;
   if (lastAttendee) {
@@ -32,14 +56,12 @@ export async function generateAttendeeId(): Promise<string> {
   return `NLS-${year}-${String(sequence).padStart(3, '0')}`;
 }
 
+// Group ID generator
 export function generateGroupId(): string {
-  const year = new Date().getFullYear();
-  const random = Math.floor(Math.random() * 10000)
-    .toString()
-    .padStart(4, "0");
-  return `GRP-${year}-${random}`;
+  return generateId('GRP');
 }
 
+// Group Code generator
 export function generateGroupCode(name: string): string {
   const words = name.split(' ');
   const code = words.map(word => word[0]).join('').toUpperCase();
