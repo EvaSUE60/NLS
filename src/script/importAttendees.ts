@@ -1,6 +1,7 @@
 // scripts/importAttendees.ts
 import { connectDB, disconnectDB } from "@/src/lib/mongodb";
 import Attendee from "@/src/models/Attendee";
+import { generateAttendeeId } from "@/src/lib/generateId";
 import attendeeData from "@/src/data/attendee.json";
 
 interface RawAttendee {
@@ -12,7 +13,7 @@ interface RawAttendee {
   "Region": string;
   "University_College": string;
   "Local_Church": string;
-  "id": string;
+  "id"?: string;
 }
 
 interface RawData {
@@ -33,11 +34,42 @@ async function importAttendees() {
 
     console.log(`📋 Found ${rawAttendees.length} attendees to import`);
 
-    // Transform data with all fields
-    const transformedAttendees = rawAttendees.map((raw) => {
+    // Check for duplicates by email/phone
+    const emails = rawAttendees.map(a => a.Email.toLowerCase().trim());
+    const phones = rawAttendees.map(a => a.Phone.replace(/^['"]|['"]$/g, ''));
+
+    const existingAttendees = await Attendee.find({
+      $or: [
+        { email: { $in: emails } },
+        { phone: { $in: phones } }
+      ]
+    });
+
+    const existingEmails = new Set(existingAttendees.map(a => a.email));
+    const existingPhones = new Set(existingAttendees.map(a => a.phone));
+
+    const newAttendees = rawAttendees.filter(a => {
+      const email = a.Email.toLowerCase().trim();
+      const phone = a.Phone.replace(/^['"]|['"]$/g, '');
+      return !existingEmails.has(email) && !existingPhones.has(phone);
+    });
+
+    if (newAttendees.length === 0) {
+      console.log("✅ All attendees already exist");
+      await disconnectDB();
+      return;
+    }
+
+    console.log(`🆕 ${newAttendees.length} new attendees to import`);
+
+    // Transform and generate IDs
+    const transformedAttendees = [];
+    for (const raw of newAttendees) {
+      const unique_id = await generateAttendeeId();
       const phone = raw.Phone.replace(/^['"]|['"]$/g, '');
-      return {
-        unique_id: raw.id,
+      
+      transformedAttendees.push({
+        unique_id,
         first_name: raw["First Name"].trim(),
         last_name: raw["Last_Name"].trim(),
         phone: phone,
@@ -53,6 +85,7 @@ async function importAttendees() {
           bedNumber: null,
           floor: null,
           buildingType: null,
+          buildingName: null,
         },
         seminars_cache: {
           registered: [],
@@ -60,12 +93,8 @@ async function importAttendees() {
         },
         group_id: null,
         synced_at: new Date(),
-      };
-    });
-
-    // Clear existing attendees (optional)
-    const deleteResult = await Attendee.deleteMany({});
-    console.log(`🧹 Cleared ${deleteResult.deletedCount} existing attendees`);
+      });
+    }
 
     // Import in batches
     const batchSize = 50;
@@ -89,13 +118,8 @@ async function importAttendees() {
       { $sort: { count: -1 } },
     ]);
 
-    const withRoom = await Attendee.countDocuments({
-      'dorm_cache.roomNumber': { $exists: true, $ne: null }
-    });
-
     console.log(`\n📊 Import Summary:`);
     console.log(`Total: ${importedCount} attendees`);
-    console.log(`With Room Assignment: ${withRoom}`);
     console.log(`\nBy Region:`);
     stats.forEach((stat) => {
       console.log(`  ${stat._id}: ${stat.count}`);
