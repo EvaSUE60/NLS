@@ -78,6 +78,7 @@ export async function GET(request: NextRequest) {
 }
 
 // POST - Create a new attendee manually
+// src/app/api/attendees/route.ts - Full POST handler
 export async function POST(request: NextRequest) {
   try {
     const authError = await requireRole(["super_admin", "admin"])(request);
@@ -142,7 +143,7 @@ export async function POST(request: NextRequest) {
     // Generate unique_id
     const unique_id = await generateAttendeeId();
 
-    // Create attendee
+    // ✅ Create attendee WITHOUT checked_in field
     const attendee = await Attendee.create({
       unique_id,
       first_name: first_name.trim(),
@@ -154,12 +155,13 @@ export async function POST(request: NextRequest) {
       local_church: local_church.trim(),
       campus: campus.trim(),
       payment_status,
-      checked_in: false,
+      // ✅ removed checked_in field
       dorm_cache: dorm_cache || {
         roomNumber: null,
         bedNumber: null,
         floor: null,
         buildingType: null,
+        buildingName: null,
       },
       seminars_cache: seminars_cache || {
         registered: [],
