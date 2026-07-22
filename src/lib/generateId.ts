@@ -1,36 +1,68 @@
 // src/lib/generateId.ts
 import mongoose from "mongoose";
 
-// Generic counter for sequential IDs
-let counter = 0;
+// ✅ Counter Schema for persistent ID generation
+const CounterSchema = new mongoose.Schema({
+  _id: { type: String, required: true },
+  sequence: { type: Number, default: 0 },
+});
 
-export function generateId(prefix: string): string {
-  counter++;
+// ✅ Only create the model if it doesn't exist
+const Counter = mongoose.models.Counter || 
+  mongoose.model('Counter', CounterSchema);
+
+export async function generateId(prefix: string): Promise<string> {
   const year = new Date().getFullYear();
-  return `${prefix}-${year}-${String(counter).padStart(6, '0')}`;
+  
+  try {
+    // ✅ Find and increment the counter atomically
+    const counter = await Counter.findByIdAndUpdate(
+      prefix,
+      { $inc: { sequence: 1 } },
+      { new: true, upsert: true, lean: true }
+    );
+    
+    const sequence = String(counter.sequence).padStart(6, '0');
+    return `${prefix}-${year}-${sequence}`;
+  } catch (error) {
+    // ✅ Fallback: If counter fails, use timestamp-based ID
+    const timestamp = Date.now().toString(36).toUpperCase();
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `${prefix}-${year}-${timestamp}${random}`;
+  }
 }
 
-// Building ID generator
-export function generateBuildingId(): string {
+// ✅ Generate seminar ID
+export async function generateSeminarId(): Promise<string> {
+  return generateId('SEM');
+}
+
+// ✅ Generate building ID
+export async function generateBuildingId(): Promise<string> {
   return generateId('BLD');
 }
 
-// Room ID generator
-export function generateRoomId(): string {
+// ✅ Generate room ID
+export async function generateRoomId(): Promise<string> {
   return generateId('RM');
 }
 
-// Assignment ID generator
-export function generateAssignmentId(): string {
+// ✅ Generate assignment ID
+export async function generateAssignmentId(): Promise<string> {
   return generateId('DA');
 }
 
-// User ID generator
-export function generateUserId(): string {
+// ✅ Generate group ID
+export async function generateGroupId(): Promise<string> {
+  return generateId('GRP');
+}
+
+// ✅ Generate user ID
+export async function generateUserId(): Promise<string> {
   return generateId('USR');
 }
 
-// Attendee ID generator
+// Generate attendee ID with sequence per year
 export async function generateAttendeeId(): Promise<string> {
   const year = new Date().getFullYear();
   const Attendee = mongoose.models.Attendee;
@@ -54,11 +86,6 @@ export async function generateAttendeeId(): Promise<string> {
   }
 
   return `NLS-${year}-${String(sequence).padStart(3, '0')}`;
-}
-
-// Group ID generator
-export function generateGroupId(): string {
-  return generateId('GRP');
 }
 
 // Group Code generator
