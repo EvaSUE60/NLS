@@ -6,7 +6,6 @@ import Group from "@/src/models/Group";
 import { requireRole } from "@/src/lib/auth/middleware";
 import { generateGroupId, generateUniqueGroupCode } from "@/src/lib/generateId";
 
-// ✅ Define types locally
 interface IRegionDistribution {
   region: string;
   count: number;
