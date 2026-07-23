@@ -1,18 +1,19 @@
 // src/app/api/sessions/[id]/attendance/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/src/lib/mongodb";
-import Session, { ISessionAttendee } from "@/src/models/Session"; // ✅ Import ISessionAttendee
+import Session, { ISessionAttendee } from "@/src/models/Session";
 import Attendee from "@/src/models/Attendee";
 import User from "@/src/models/User";
+import Group from "@/src/models/Group"; // ✅ Import Group
 import { requireRole } from "@/src/lib/auth/middleware";
 import mongoose from "mongoose";
+import { generateId } from "@/src/lib/generateId";
 
-// ✅ Helper: Calculate attendance status based on current time (LOCAL TIME)
+// Helper: Calculate attendance status based on current time (LOCAL TIME)
 function calculateAttendanceStatus(
   checkInTime: Date,
   session: any
 ): "on_time" | "late" | "absent" {
-  // Get the time components from the check-in time (in local time)
   const hours = checkInTime.getHours();
   const minutes = checkInTime.getMinutes();
   const timeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
@@ -28,6 +29,52 @@ function calculateAttendanceStatus(
     return "late";
   } else {
     return "absent";
+  }
+}
+
+// ✅ Helper: Update group points for late/absent attendees
+async function updateGroupPointsForAttendance(
+  attendeeId: string,
+  status: "on_time" | "late" | "absent",
+  sessionName: string,
+  day: number
+): Promise<void> {
+  try {
+    const attendee = await Attendee.findById(attendeeId).lean();
+    if (!attendee || !attendee.group_id) return;
+
+    let penalty = 0;
+    let reason = "";
+
+    if (status === "late") {
+      penalty = -2;
+      reason = `Late to ${sessionName} (Day ${day}) - ${attendee.unique_id}`;
+    } else if (status === "absent") {
+      penalty = -3;
+      reason = `Absent from ${sessionName} (Day ${day}) - ${attendee.unique_id}`;
+    } else {
+      return;
+    }
+
+    const group = await Group.findById(attendee.group_id);
+    if (!group) return;
+
+    group.points += penalty;
+    group.total_lost += Math.abs(penalty);
+
+    group.activities.push({
+      activity_id: await generateId('ACT'),
+      type: "auto_penalty",
+      description: reason,
+      points: penalty,
+      reason: reason,
+      created_at: new Date(),
+    });
+
+    await group.save();
+    console.log(`✅ Auto-penalty applied: ${penalty} points to group "${group.name}" for ${attendee.unique_id}`);
+  } catch (error) {
+    console.error("Error updating group points:", error);
   }
 }
 
@@ -74,7 +121,7 @@ export async function POST(
       );
     }
 
-    // ✅ Check if attendee already checked in - with proper typing
+    // Check if attendee already checked in
     const existingAttendee = session.attendees.find(
       (a: ISessionAttendee) => a.attendeeId.toString() === attendee._id.toString()
     );
@@ -94,11 +141,10 @@ export async function POST(
       );
     }
 
-    // Get staff user
     const user = (request as any).user;
     const staffUser = await User.findOne({ user_id: user.user_id });
 
-    // Calculate check-in time and status using LOCAL time
+    // Calculate check-in time and status
     const checkInTime = new Date();
     const status = calculateAttendanceStatus(checkInTime, session);
 
@@ -116,14 +162,13 @@ export async function POST(
 
     await session.save();
 
-    // Update attendee's sessions_cache
+    // ✅ Update attendee's sessions_cache
     const updateData: any = {
       $push: {
         "sessions_cache.attended": session.session_id,
       },
     };
 
-    // Push to specific status array
     if (status === "on_time") {
       updateData.$push["sessions_cache.on_time"] = session.session_id;
     } else if (status === "late") {
@@ -133,6 +178,27 @@ export async function POST(
     }
 
     await Attendee.findByIdAndUpdate(attendee._id, updateData);
+
+    // ✅ NEW: Apply auto-penalty to group if late or absent
+    await updateGroupPointsForAttendance(
+      attendee._id.toString(),
+      status,
+      session.name,
+      session.day
+    );
+
+    // Get updated group info for response
+    let groupInfo = null;
+    if (attendee.group_id) {
+      const group = await Group.findById(attendee.group_id);
+      if (group) {
+        groupInfo = {
+          _id: group._id,
+          name: group.name,
+          points: group.points,
+        };
+      }
+    }
 
     return NextResponse.json({
       success: true,
@@ -156,6 +222,9 @@ export async function POST(
           checked_by: staffUser?.name || "System",
         },
         attendance_stats: session.attendanceStats,
+        group: groupInfo, // ✅ Show group points change
+        penalty_applied: status === "late" || status === "absent" ? true : false,
+        penalty_points: status === "late" ? -2 : status === "absent" ? -3 : 0,
       },
     });
   } catch (error) {

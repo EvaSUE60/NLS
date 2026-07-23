@@ -1,5 +1,6 @@
 // src/lib/generateId.ts
 import mongoose from "mongoose";
+import Group from "../models/Group";
 
 // ✅ Counter Schema for persistent ID generation
 const CounterSchema = new mongoose.Schema({
@@ -89,6 +90,38 @@ export async function generateAttendeeId(): Promise<string> {
 }
 
 // Group Code generator
+
+
+export async function generateSessionId(): Promise<string> {
+  return generateId('SES');
+}
+
+// src/lib/generateId.ts - Update generateGroupCode
+
+export async function generateUniqueGroupCode(name: string): Promise<string> {
+  const words = name.split(' ');
+  let baseCode = words.map(word => word[0]).join('').toUpperCase();
+  
+  // If code is too short, add a random number
+  if (baseCode.length < 2) {
+    baseCode = `${baseCode}${Math.floor(Math.random() * 100)}`;
+  }
+  
+  // Check if code exists and add suffix if needed
+  let code = baseCode;
+  let counter = 1;
+  
+  while (true) {
+    const existing = await Group.findOne({ group_code: code });
+    if (!existing) {
+      return code;
+    }
+    code = `${baseCode}${counter}`;
+    counter++;
+  }
+}
+
+// For backward compatibility
 export function generateGroupCode(name: string): string {
   const words = name.split(' ');
   const code = words.map(word => word[0]).join('').toUpperCase();
@@ -96,8 +129,4 @@ export function generateGroupCode(name: string): string {
     return `${code}${Math.floor(Math.random() * 100)}`;
   }
   return code;
-}
-
-export async function generateSessionId(): Promise<string> {
-  return generateId('SES');
 }
