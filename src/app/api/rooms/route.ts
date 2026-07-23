@@ -4,8 +4,8 @@ import { connectDB } from "@/src/lib/mongodb";
 import Building from "@/src/models/Building";
 import Room from "@/src/models/Room";
 import { requireRole } from "@/src/lib/auth/middleware";
+import mongoose from "mongoose";
 import { z } from "zod";
-
 const createRoomSchema = z.object({
   building_id: z.string().min(1, "Building ID is required"),
   floor: z.number().min(1, "Floor number is required"),

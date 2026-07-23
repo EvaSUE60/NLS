@@ -132,6 +132,7 @@ RoomSchema.pre("save", async function() {
 RoomSchema.set("toJSON", {
   virtuals: true,
   transform: function(_doc, ret) {
+    // @ts-ignore
     delete ret.__v;
     return ret;
   },
@@ -141,7 +142,7 @@ RoomSchema.set("toObject", {
   virtuals: true,
 });
 
-// Use mongoose.models to check if model exists, with fallback
+
 const Room = mongoose.models.Room || mongoose.model<IRoom>("Room", RoomSchema);
 
 export default Room;

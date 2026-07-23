@@ -85,6 +85,7 @@ DormAssignmentSchema.index({ attendee_id: 1, status: 1 }, { unique: true, partia
 DormAssignmentSchema.set("toJSON", {
   virtuals: true,
   transform: function(_doc, ret) {
+// @ts-ignore
     delete ret.__v;
     return ret;
   },
