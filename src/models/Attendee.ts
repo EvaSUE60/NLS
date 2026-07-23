@@ -30,6 +30,14 @@ export interface IAttendee extends Document {
     attended?: string[];
   };
   
+  // ==================== SESSIONS ====================
+  sessions_cache: {
+    attended: string[];    // session_ids
+    on_time: string[];     // session_ids (on-time attendance)
+    late: string[];        // session_ids (late attendance)
+    absent: string[];      // session_ids (absent)
+  };
+  
   // ==================== GROUP ====================
   group_id?: mongoose.Types.ObjectId | null;
   synced_at?: Date;
@@ -125,6 +133,14 @@ const AttendeeSchema = new Schema<IAttendee>(
       attended: [{ type: String, trim: true }],
     },
     
+    // ==================== ✅ SESSIONS ====================
+    sessions_cache: {
+      attended: [{ type: String, trim: true }],
+      on_time: [{ type: String, trim: true }],
+      late: [{ type: String, trim: true }],
+      absent: [{ type: String, trim: true }],
+    },
+    
     // ==================== GROUP ====================
     group_id: {
       type: Schema.Types.ObjectId,
@@ -175,7 +191,7 @@ AttendeeSchema.index({ group_id: 1 });
 AttendeeSchema.index({ payment_status: 1 });
 AttendeeSchema.index({ dorm_assignment_id: 1 });
 
-// ✅ Arrival Check-in indexes
+// Arrival Check-in indexes
 AttendeeSchema.index({ arrived: 1 });
 AttendeeSchema.index({ arrival_time: 1 });
 
@@ -220,13 +236,21 @@ AttendeeSchema.set("toJSON", {
       // Seminars
       seminars_cache: ret.seminars_cache || { registered: [], attended: [] },
       
+      // ✅ Sessions
+      sessions_cache: ret.sessions_cache || { 
+        attended: [], 
+        on_time: [], 
+        late: [], 
+        absent: [] 
+      },
+      
       // Group
       group_id: ret.group_id,
       
       // Sync
       synced_at: ret.synced_at,
       
-      // ✅ Arrival Check-in
+      // Arrival Check-in
       arrived: ret.arrived,
       arrival_time: ret.arrival_time,
       arrival_method: ret.arrival_method,

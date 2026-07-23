@@ -97,3 +97,7 @@ export function generateGroupCode(name: string): string {
   }
   return code;
 }
+
+export async function generateSessionId(): Promise<string> {
+  return generateId('SES');
+}
