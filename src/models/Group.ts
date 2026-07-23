@@ -1,4 +1,3 @@
-// src/models/Group.ts
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface IGroupMember {

@@ -5,7 +5,6 @@ import Group from "@/src/models/Group";
 import { requireRole } from "@/src/lib/auth/middleware";
 import mongoose from "mongoose";
 
-// GET - Get group details
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
