@@ -1,11 +1,76 @@
 // src/app/api/seminars/[id]/attendance/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/src/lib/mongodb";
-import Seminar, { IParticipant } from "@/src/models/Seminar"; // ✅ Import IParticipant
+import Seminar, { IParticipant } from "@/src/models/Seminar";
 import Attendee from "@/src/models/Attendee";
 import User from "@/src/models/User";
+import Group from "@/src/models/Group";
 import { requireRole } from "@/src/lib/auth/middleware";
 import mongoose from "mongoose";
+import { generateId } from "@/src/lib/generateId";
+
+// Helper: Calculate attendance status for seminar
+function calculateSeminarAttendanceStatus(
+  checkInTime: Date,
+  seminar: any
+): "on_time" | "late" | "absent" {
+  const hours = checkInTime.getHours();
+  const minutes = checkInTime.getMinutes();
+  const timeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  
+  console.log(`🕐 Check-in time (local): ${timeStr}`);
+  console.log(`📋 Seminar rules:`);
+  console.log(`   On-time: ${seminar.start_time}`);
+  console.log(`   Late window: ${seminar.start_time} - ${seminar.end_time}`);
+  
+  // Seminar: On-time means before or at start time
+  if (timeStr <= seminar.start_time) {
+    return "on_time";
+  } else if (timeStr > seminar.start_time && timeStr <= seminar.end_time) {
+    return "late";
+  } else {
+    return "absent";
+  }
+}
+
+// ✅ Helper: Update group points for seminar attendance
+async function updateGroupPointsForSeminarAttendance(
+  attendeeId: string,
+  status: "on_time" | "late" | "absent",
+  seminarName: string,
+  day: number
+): Promise<void> {
+  try {
+    const attendee = await Attendee.findById(attendeeId).lean();
+    if (!attendee || !attendee.group_id) return;
+
+    // ✅ Only penalize for LATE
+    if (status !== "late") return;
+
+    const penalty = -1;
+    const reason = `Late to Seminar: ${seminarName} (Day ${day}) - ${attendee.unique_id}`;
+
+    const group = await Group.findById(attendee.group_id);
+    if (!group) return;
+
+    group.points += penalty;
+    group.total_lost += Math.abs(penalty);
+
+    group.activities.push({
+      activity_id: await generateId('ACT'),
+      type: "auto_penalty",
+      description: reason,
+      points: penalty,
+      reason: reason,
+      created_at: new Date(),
+    });
+
+    await group.save();
+    console.log(`✅ Seminar auto-penalty applied: ${penalty} points to group "${group.name}"`);
+  } catch (error) {
+    console.error("Error updating group points:", error);
+  }
+}
 
 // POST - Check-in attendee to seminar by NLS ID
 export async function POST(
@@ -24,14 +89,7 @@ export async function POST(
 
     if (!nls_id) {
       return NextResponse.json(
-        { success: false, error: "NLS ID is required (e.g., NLS-2026-001)" },
-        { status: 400 }
-      );
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return NextResponse.json(
-        { success: false, error: "Invalid seminar ID" },
+        { success: false, error: "NLS ID is required" },
         { status: 400 }
       );
     }
@@ -45,7 +103,7 @@ export async function POST(
       );
     }
 
-    // Find attendee by NLS ID
+    // Get attendee
     const attendee = await Attendee.findOne({ unique_id: nls_id });
     if (!attendee) {
       return NextResponse.json(
@@ -58,7 +116,7 @@ export async function POST(
       );
     }
 
-    // ✅ Find participant in seminar with proper typing
+    // Find participant in seminar
     const participantIndex = seminar.participants.findIndex(
       (p: IParticipant) => p.attendeeId.toString() === attendee._id.toString()
     );
@@ -68,7 +126,7 @@ export async function POST(
         {
           success: false,
           error: "Not registered",
-          message: `${attendee.first_name} ${attendee.last_name} (${attendee.unique_id}) is not registered for this seminar`,
+          message: `${attendee.first_name} ${attendee.last_name} is not registered for this seminar`,
         },
         { status: 400 }
       );
@@ -80,19 +138,22 @@ export async function POST(
         {
           success: false,
           error: "Already checked in",
-          message: `${attendee.first_name} ${attendee.last_name} already checked in at ${seminar.participants[participantIndex].attendedAt}`,
+          message: `${attendee.first_name} ${attendee.last_name} already checked in`,
         },
         { status: 400 }
       );
     }
 
-    // Get staff user
     const user = (request as any).user;
     const staffUser = await User.findOne({ user_id: user.user_id });
 
+    // Calculate status
+    const checkInTime = new Date();
+    const status = calculateSeminarAttendanceStatus(checkInTime, seminar);
+
     // Update participant
     seminar.participants[participantIndex].attended = true;
-    seminar.participants[participantIndex].attendedAt = new Date();
+    seminar.participants[participantIndex].attendedAt = checkInTime;
     seminar.participants[participantIndex].check_in_method = method;
     seminar.participants[participantIndex].checkedInBy = staffUser?._id;
 
@@ -105,14 +166,30 @@ export async function POST(
       },
     });
 
-    // ✅ Count attendance with proper typing
-    const totalCheckedIn = seminar.participants.filter(
-      (p: IParticipant) => p.attended
-    ).length;
+    // ✅ Apply auto-penalty for LATE
+    await updateGroupPointsForSeminarAttendance(
+      attendee._id.toString(),
+      status,
+      seminar.name,
+      seminar.day
+    );
+
+    // Get updated group info
+    let groupInfo = null;
+    if (attendee.group_id) {
+      const group = await Group.findById(attendee.group_id);
+      if (group) {
+        groupInfo = {
+          _id: group._id,
+          name: group.name,
+          points: group.points,
+        };
+      }
+    }
 
     return NextResponse.json({
       success: true,
-      message: `${attendee.first_name} ${attendee.last_name} (${attendee.unique_id}) checked in to "${seminar.name}"`,
+      message: `${attendee.first_name} ${attendee.last_name} checked in to "${seminar.name}" (${status})`,
       data: {
         seminar: {
           _id: seminar._id,
@@ -126,13 +203,13 @@ export async function POST(
         },
         check_in: {
           method: method,
-          time: new Date(),
+          time: checkInTime,
+          status: status,
           checked_by: staffUser?.name || "System",
         },
-        attendance_stats: {
-          total_checked_in: totalCheckedIn,
-          total_registered: seminar.participants.length,
-        },
+        group: groupInfo,
+        penalty_applied: status === "late" ? true : false,
+        penalty_points: status === "late" ? -1 : 0,
       },
     });
   } catch (error) {
