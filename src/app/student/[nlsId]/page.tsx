@@ -1,8 +1,10 @@
 // src/app/student/[nlsId]/page.tsx
-'use client';
 
-import { use } from 'react';
-import { useStudent } from '@/src/hooks/useStudent';
+"use client";
+
+import { use } from "react";
+import Link from "next/link";
+import { useStudent } from "@/src/hooks/useStudent";
 
 interface StudentPageProps {
   params: Promise<{
@@ -11,174 +13,476 @@ interface StudentPageProps {
 }
 
 export default function StudentPage({ params }: StudentPageProps) {
-  // ✅ Use React.use() to unwrap the Promise
   const { nlsId } = use(params);
 
-  const { data, isLoading, error, searchHistory } = useStudent(nlsId);
+  const { data, isLoading, error } = useStudent(nlsId);
 
+  // Loading
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <main className="flex min-h-screen items-center justify-center bg-[#135574] text-white">
         <div className="text-center">
-          <div className="mb-4 text-xl">Loading student information...</div>
-          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-500"></div>
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-[#ff5b68]" />
+
+          <p className="mt-5 text-sm text-sky-100/80">
+            Loading student information...
+          </p>
         </div>
-      </div>
+      </main>
     );
   }
 
+  // Error
   if (error) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center text-red-500">
-          <h2 className="text-2xl font-bold">Error</h2>
-          <p>{error instanceof Error ? error.message : 'Failed to load student data'}</p>
+      <main className="flex min-h-screen items-center justify-center bg-[#135574] px-5 text-white">
+        <div className="w-full max-w-md rounded-2xl border border-red-400/20 bg-white/10 p-8 text-center shadow-2xl backdrop-blur-xl">
+          <div className="mb-4 text-4xl">!</div>
+
+          <h2 className="text-2xl font-black">
+            Unable to Load Student
+          </h2>
+
+          <p className="mt-3 text-sm text-red-200">
+            {error instanceof Error
+              ? error.message
+              : "Failed to load student data"}
+          </p>
+
+          <Link
+            href="/student"
+            className="mt-6 inline-block text-sm text-sky-300 hover:text-white"
+          >
+            ← Back to Student Lookup
+          </Link>
         </div>
-      </div>
+      </main>
     );
   }
 
+  // Student not found
   if (!data) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold">Student Not Found</h2>
-          <p className="mt-2 text-gray-500">No student found with ID: {nlsId}</p>
+      <main className="flex min-h-screen items-center justify-center bg-[#135574] px-5 text-white">
+        <div className="w-full max-w-md rounded-2xl border border-white/15 bg-white/10 p-8 text-center shadow-2xl backdrop-blur-xl">
+          <h2 className="text-2xl font-black">
+            Student Not Found
+          </h2>
+
+          <p className="mt-3 text-sm text-sky-200">
+            No student found with ID:
+          </p>
+
+          <p className="mt-1 font-bold text-[#ff5b68]">
+            {nlsId}
+          </p>
+
+          <Link
+            href="/student"
+            className="mt-6 inline-block text-sm text-sky-300 hover:text-white"
+          >
+            ← Try another NLS ID
+          </Link>
         </div>
-      </div>
+      </main>
     );
   }
 
-  const { student, room, group, seminars, sessions, arrival } = data;
+  const {
+    student,
+    room,
+    group,
+    seminars,
+    sessions,
+    arrival,
+  } = data;
 
   return (
-    <div className="container mx-auto max-w-4xl p-4">
-      {/* Header */}
-      <div className="mb-6 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 p-6 text-white">
-        <h1 className="text-3xl font-bold">{student.full_name}</h1>
-        <p className="text-sm opacity-80">{student.unique_id}</p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <span className="rounded-full bg-white/20 px-3 py-1 text-sm">
-            {student.gender}
-          </span>
-          <span className="rounded-full bg-white/20 px-3 py-1 text-sm">
-            {student.region}
-          </span>
-          <span className="rounded-full bg-white/20 px-3 py-1 text-sm">
-            {student.arrived ? '✅ Arrived' : '❌ Not Arrived'}
-          </span>
-        </div>
+    <main className="relative min-h-screen overflow-hidden bg-[#135574] px-5 py-10 text-white">
+
+      {/* Background effects */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -left-32 top-20 h-[400px] w-[400px] rounded-full bg-sky-400/10 blur-[120px]" />
+
+        <div className="absolute -right-32 bottom-20 h-[400px] w-[400px] rounded-full bg-[#ed2529]/10 blur-[120px]" />
+
+        <div className="absolute left-1/2 top-1/2 h-[500px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-300/5 blur-[150px]" />
       </div>
 
-      {/* Grid */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Personal Info */}
-        <div className="rounded-lg border p-4">
-          <h2 className="mb-3 font-semibold text-gray-600">Personal Information</h2>
-          <div className="space-y-2 text-sm">
-            <p><span className="text-gray-500">Church:</span> {student.local_church}</p>
-            <p><span className="text-gray-500">Campus:</span> {student.campus}</p>
-            <p><span className="text-gray-500">Payment:</span> {student.payment_status}</p>
+      <div className="relative z-10 mx-auto max-w-5xl">
+
+        {/* Back */}
+        <Link
+          href="/student"
+          className="mb-7 inline-flex items-center gap-2 text-sm text-sky-300 transition hover:-translate-x-1 hover:text-white"
+        >
+          ← Back to Student Lookup
+        </Link>
+
+        {/* ================= HEADER ================= */}
+
+        <section className="rounded-2xl border border-white/15 bg-white/10 p-7 shadow-2xl backdrop-blur-xl sm:p-8">
+
+          <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-center">
+
+            <div>
+              <p className="mb-2 text-xs font-bold tracking-[0.3em] text-[#ff5b68]">
+                NLS 2026
+              </p>
+
+              <h1 className="text-3xl font-black sm:text-4xl">
+                {student.full_name}
+              </h1>
+
+              <p className="mt-2 text-sm text-sky-200/70">
+                {student.unique_id}
+              </p>
+            </div>
+
+            {/* Arrival badge */}
+            <span
+              className={`w-fit rounded-full border px-4 py-2 text-sm font-semibold ${
+                student.arrived
+                  ? "border-green-400/30 bg-green-400/10 text-green-300"
+                  : "border-red-400/30 bg-red-400/10 text-red-300"
+              }`}
+            >
+              {student.arrived
+                ? "✓ Arrived"
+                : "Not Arrived"}
+            </span>
           </div>
-        </div>
 
-        {/* Room Info */}
-        <div className="rounded-lg border p-4">
-          <h2 className="mb-3 font-semibold text-gray-600">Room Information</h2>
-          {room ? (
-            <div className="space-y-2 text-sm">
-              <p><span className="text-gray-500">Room:</span> {room.room_number}</p>
-              <p><span className="text-gray-500">Bed:</span> {room.bed_number}</p>
-              <p><span className="text-gray-500">Floor:</span> {room.floor}</p>
-              <p><span className="text-gray-500">Building:</span> {room.building_name}</p>
-            </div>
-          ) : (
-            <p className="text-sm text-gray-500">No room assigned</p>
-          )}
-        </div>
+          <div className="mt-6 flex flex-wrap gap-2">
 
-        {/* Group Info */}
-        <div className="rounded-lg border p-4">
-          <h2 className="mb-3 font-semibold text-gray-600">Group</h2>
-          {group ? (
-            <div className="space-y-2 text-sm">
-              <p><span className="text-gray-500">Name:</span> {group.name}</p>
-              <p><span className="text-gray-500">Code:</span> {group.group_code}</p>
-              <p><span className="text-gray-500">Points:</span> {group.points}</p>
-              <p><span className="text-gray-500">Members:</span> {group.member_count}/{group.max_size}</p>
-            </div>
-          ) : (
-            <p className="text-sm text-gray-500">No group assigned</p>
-          )}
-        </div>
+            <Badge>
+              {student.gender}
+            </Badge>
 
-        {/* Seminars */}
-        <div className="rounded-lg border p-4">
-          <h2 className="mb-3 font-semibold text-gray-600">Seminars</h2>
-          <div className="space-y-2 text-sm">
-            <p><span className="text-gray-500">Registered:</span> {seminars.total_registered}</p>
-            <p><span className="text-gray-500">Attended:</span> {seminars.total_attended}</p>
+            <Badge>
+              {student.region}
+            </Badge>
+
+          </div>
+        </section>
+
+        {/* ================= INFORMATION ================= */}
+
+        <div className="mt-6 grid gap-6 md:grid-cols-2">
+
+          {/* Personal Information */}
+
+          <InfoCard title="Personal Information">
+            <InfoRow
+              label="Church"
+              value={student.local_church}
+            />
+
+            <InfoRow
+              label="Campus"
+              value={student.campus}
+            />
+
+            <InfoRow
+              label="Payment"
+              value={student.payment_status}
+            />
+          </InfoCard>
+
+          {/* Room */}
+
+          <InfoCard title="Room Information">
+            {room ? (
+              <>
+                <InfoRow
+                  label="Room"
+                  value={room.room_number}
+                />
+
+                <InfoRow
+                  label="Bed"
+                  value={room.bed_number}
+                />
+
+                <InfoRow
+                  label="Floor"
+                  value={room.floor}
+                />
+
+                <InfoRow
+                  label="Building"
+                  value={room.building_name}
+                />
+              </>
+            ) : (
+              <EmptyMessage>
+                No room assigned
+              </EmptyMessage>
+            )}
+          </InfoCard>
+
+          {/* Group */}
+
+          <InfoCard title="Group Information">
+            {group ? (
+              <>
+                <InfoRow
+                  label="Name"
+                  value={group.name}
+                />
+
+                <InfoRow
+                  label="Code"
+                  value={group.group_code}
+                />
+
+                <InfoRow
+                  label="Points"
+                  value={group.points}
+                />
+
+                <InfoRow
+                  label="Members"
+                  value={`${group.member_count}/${group.max_size}`}
+                />
+              </>
+            ) : (
+              <EmptyMessage>
+                No group assigned
+              </EmptyMessage>
+            )}
+          </InfoCard>
+
+          {/* Seminar */}
+
+          <InfoCard title="Seminars">
+
+            <InfoRow
+              label="Registered"
+              value={seminars.total_registered}
+            />
+
+            <InfoRow
+              label="Attended"
+              value={seminars.total_attended}
+            />
+
             {seminars.seminars.length > 0 && (
-              <div className="mt-2 max-h-32 overflow-y-auto">
+              <div className="mt-5 space-y-2">
+
                 {seminars.seminars.map((sem) => (
-                  <div key={sem.seminar_id} className="flex items-center justify-between border-b py-1 text-xs">
-                    <span>{sem.name}</span>
-                    <span className={sem.attended ? 'text-green-500' : 'text-red-500'}>
-                      {sem.attended ? '✅' : '❌'}
+                  <div
+                    key={sem.seminar_id}
+                    className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2 text-sm"
+                  >
+                    <span className="text-sky-100">
+                      {sem.name}
+                    </span>
+
+                    <span
+                      className={
+                        sem.attended
+                          ? "text-green-300"
+                          : "text-red-300"
+                      }
+                    >
+                      {sem.attended
+                        ? "✓ Attended"
+                        : "Not attended"}
                     </span>
                   </div>
                 ))}
+
               </div>
             )}
-          </div>
+
+          </InfoCard>
         </div>
 
-        {/* Sessions */}
-        <div className="rounded-lg border p-4 md:col-span-2">
-          <h2 className="mb-3 font-semibold text-gray-600">Sessions Attendance</h2>
-          <div className="grid grid-cols-4 gap-4 text-center">
-            <div className="rounded-lg bg-gray-50 p-3">
-              <div className="text-2xl font-bold text-blue-500">{sessions.total_sessions}</div>
-              <div className="text-xs text-gray-500">Total</div>
-            </div>
-            <div className="rounded-lg bg-green-50 p-3">
-              <div className="text-2xl font-bold text-green-500">{sessions.on_time}</div>
-              <div className="text-xs text-gray-500">On Time</div>
-            </div>
-            <div className="rounded-lg bg-yellow-50 p-3">
-              <div className="text-2xl font-bold text-yellow-500">{sessions.late}</div>
-              <div className="text-xs text-gray-500">Late</div>
-            </div>
-            <div className="rounded-lg bg-red-50 p-3">
-              <div className="text-2xl font-bold text-red-500">{sessions.absent}</div>
-              <div className="text-xs text-gray-500">Absent</div>
-            </div>
-          </div>
-          <div className="mt-2 text-center text-sm">
-            <span className="font-medium">Attendance Rate:</span> {sessions.attendance_rate}
-          </div>
-        </div>
+        {/* ================= ATTENDANCE ================= */}
 
-        {/* Arrival */}
-        <div className="rounded-lg border p-4 md:col-span-2">
-          <h2 className="mb-3 font-semibold text-gray-600">Check-in Status</h2>
-          <div className="flex items-center gap-4">
-            <span className={arrival.arrived ? 'text-green-500' : 'text-red-500'}>
-              {arrival.arrived ? '✅ Arrived' : '❌ Not Arrived'}
+        <section className="mt-6 rounded-2xl border border-white/15 bg-white/10 p-6 shadow-xl backdrop-blur-xl">
+
+          <h2 className="text-lg font-bold">
+            Session Attendance
+          </h2>
+
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+
+            <AttendanceCard
+              value={sessions.total_sessions}
+              label="Total"
+            />
+
+            <AttendanceCard
+              value={sessions.on_time}
+              label="On Time"
+              valueClass="text-green-300"
+            />
+
+            <AttendanceCard
+              value={sessions.late}
+              label="Late"
+              valueClass="text-yellow-300"
+            />
+
+            <AttendanceCard
+              value={sessions.absent}
+              label="Absent"
+              valueClass="text-red-300"
+            />
+
+          </div>
+
+          <div className="mt-5 flex items-center justify-between border-t border-white/10 pt-5">
+
+            <span className="text-sm text-sky-200/70">
+              Attendance Rate
             </span>
+
+            <span className="font-bold text-sky-100">
+              {sessions.attendance_rate}
+            </span>
+
+          </div>
+        </section>
+
+        {/* ================= ARRIVAL ================= */}
+
+        <section className="mt-6 rounded-2xl border border-white/15 bg-white/10 p-6 shadow-xl backdrop-blur-xl">
+
+          <h2 className="text-lg font-bold">
+            Check-in Status
+          </h2>
+
+          <div className="mt-5 flex flex-wrap items-center gap-4">
+
+            <span
+              className={
+                arrival.arrived
+                  ? "font-semibold text-green-300"
+                  : "font-semibold text-red-300"
+              }
+            >
+              {arrival.arrived
+                ? "✓ Arrived"
+                : "Not Arrived"}
+            </span>
+
             {arrival.arrival_time && (
-              <span className="text-sm text-gray-500">
-                at {new Date(arrival.arrival_time).toLocaleString()}
+              <span className="text-sm text-sky-200/70">
+                {new Date(
+                  arrival.arrival_time
+                ).toLocaleString()}
               </span>
             )}
+
             {arrival.arrival_method && (
-              <span className="rounded-full bg-gray-100 px-2 py-1 text-xs">
+              <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs text-sky-100">
                 {arrival.arrival_method}
               </span>
             )}
+
           </div>
-        </div>
+        </section>
+
       </div>
+    </main>
+  );
+}
+
+/* =====================================================
+   SMALL REUSABLE PAGE COMPONENTS
+===================================================== */
+
+function InfoCard({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border border-white/15 bg-white/10 p-6 shadow-xl backdrop-blur-xl">
+
+      <h2 className="mb-5 text-lg font-bold">
+        {title}
+      </h2>
+
+      <div className="space-y-3">
+        {children}
+      </div>
+
+    </section>
+  );
+}
+
+function InfoRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 border-b border-white/5 pb-2 text-sm">
+
+      <span className="text-sky-200/60">
+        {label}
+      </span>
+
+      <span className="text-right font-medium text-sky-50">
+        {value}
+      </span>
+
     </div>
+  );
+}
+
+function Badge({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs text-sky-100">
+      {children}
+    </span>
+  );
+}
+
+function AttendanceCard({
+  value,
+  label,
+  valueClass = "text-sky-100",
+}: {
+  value: React.ReactNode;
+  label: string;
+  valueClass?: string;
+}) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-center">
+
+      <p className={`text-2xl font-black ${valueClass}`}>
+        {value}
+      </p>
+
+      <p className="mt-1 text-xs text-sky-200/60">
+        {label}
+      </p>
+
+    </div>
+  );
+}
+
+function EmptyMessage({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <p className="text-sm text-sky-200/60">
+      {children}
+    </p>
   );
 }

@@ -15,7 +15,6 @@ export function withAuth(Component: React.ComponentType, allowedRoles?: string[]
         router.push('/login');
         return;
       }
-
       if (!isLoading && isAuthenticated && allowedRoles) {
         if (!hasRole(allowedRoles)) {
           router.push('/unauthorized');
