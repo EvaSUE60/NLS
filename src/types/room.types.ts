@@ -46,7 +46,22 @@ export interface RoomResponse {
 
 export interface RoomsListResponse {
   success: boolean;
-  data: Room[];
+  data: {
+    rooms: Room[];
+    pagination?: {
+      page: number;
+      limit: number;
+      total: number;
+      pages: number;
+    };
+    stats?: Array<{
+      _id: string;
+      total_rooms: number;
+      occupied_rooms: number;
+      total_beds: number;
+      occupied_beds: number;
+    }>;
+  };
 }
 
 export interface RoomWithBuilding extends Room {

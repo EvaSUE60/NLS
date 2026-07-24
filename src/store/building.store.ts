@@ -61,7 +61,7 @@ export const useBuildingStore = create<BuildingState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await buildingService.getBuilding(id);
-      set({ selectedBuilding: response.data.data, isLoading: false });
+      set({ selectedBuilding: response.data.data.building, isLoading: false });
     } catch (error: any) {
       set({
         error: error.response?.data?.message || 'Failed to fetch building',
@@ -75,7 +75,7 @@ export const useBuildingStore = create<BuildingState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await buildingService.createBuilding(data);
-      const newBuilding = response.data.data;
+      const newBuilding = response.data.data.building;
       await get().fetchBuildings();
       set({ isLoading: false });
       return newBuilding;

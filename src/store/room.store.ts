@@ -67,7 +67,7 @@ export const useRoomStore = create<RoomState>((set, get) => ({
       set({ filters: newFilters });
 
       const response = await roomService.getRooms(newFilters);
-      const rooms = response.data.data;
+      const rooms = response.data.data.rooms || [];
 
       // Calculate stats
       const total = rooms.length;

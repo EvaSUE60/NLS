@@ -6,3 +6,6 @@ export * from './student.service';
 export * from './building.service';
 export * from './room.service';
 export * from './dorm.service';
+export * from './seminar.service';
+export * from './group.service';
+export * from './session.service';
