@@ -75,7 +75,6 @@ const UserSchema = new Schema<IUser>(
   }
 );
 
-// Only define additional indexes that aren't already covered by schema options
 // Remove the duplicate index definitions for email and user_id since they already have unique: true
 UserSchema.index({ role: 1 });
 UserSchema.index({ is_active: 1 });
