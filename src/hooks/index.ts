@@ -5,3 +5,7 @@ export * from './useCheckin';
 export * from './useStudent';
 export * from './useBuilding';
 export * from './useRoom';
+export * from './useDorm';
+export * from './useSeminar';
+export * from './useGroup';
+export * from './useSession';

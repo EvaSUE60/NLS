@@ -4,3 +4,5 @@ export * from './checkin.types';
 export * from './building.types';
 export * from './room.types';
 export * from './dorm.types';
+export * from './seminar.types';
+export * from './group.types';

@@ -8,6 +8,8 @@ import {
   UpdateBuildingData,
   BuildingResponse,
   BuildingsListResponse,
+  BuildingDetailsResponse,
+  CreateBuildingResponse,
 } from '@/src/types/building.types';
 
 export const buildingService = {
@@ -19,12 +21,12 @@ export const buildingService = {
   // ==================== GET SINGLE BUILDING ====================
   // GET /api/buildings/[id]
   getBuilding: (id: string) =>
-    apiClient.get<BuildingResponse>(`/buildings/${id}`),
+    apiClient.get<BuildingDetailsResponse>(`/buildings/${id}`),
 
   // ==================== CREATE BUILDING ====================
   // POST /api/buildings
   createBuilding: (data: CreateBuildingData) =>
-    apiClient.post<BuildingResponse>('/buildings', data),
+    apiClient.post<CreateBuildingResponse>('/buildings', data),
 
   // ==================== UPDATE BUILDING ====================
   // PUT /api/buildings/[id]

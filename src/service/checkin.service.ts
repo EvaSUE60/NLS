@@ -46,7 +46,7 @@ export const checkinService = {
 
   // Get arrival statistics
   getArrivalStats: () =>
-    apiClient.get<{ success: boolean; data: CheckInStats }>('/attendees/stats/arrival'),
+    apiClient.get<{ success: boolean; data: CheckInStats }>('/attendees/arrival-stats'),
 
   // ==================== SESSION CHECK-IN ====================
 

@@ -37,6 +37,37 @@ export interface UpdateBuildingData extends Partial<CreateBuildingData> {
   is_active?: boolean;
 }
 
+export interface BuildingDetailsResponse {
+  success: boolean;
+  data: {
+    building: Building;
+    stats: {
+      total_rooms: number;
+      total_beds: number;
+      occupied_beds: number;
+      available_beds: number;
+      occupancy_rate: number | string;
+    };
+    rooms_by_floor: Array<{
+      floor: number;
+      floor_name: string;
+      rooms: any[];
+    }>;
+    all_rooms: any[];
+  };
+}
+
+export interface CreateBuildingResponse {
+  success: boolean;
+  message: string;
+  data: {
+    building: Building;
+    total_rooms: number;
+    inserted_rooms: number;
+    total_capacity: number;
+  };
+}
+
 export interface BuildingResponse {
   success: boolean;
   data: Building;

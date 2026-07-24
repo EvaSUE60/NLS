@@ -62,7 +62,7 @@ export const attendeeService = {
 
   // ==================== ARRIVAL STATISTICS ====================
   getArrivalStats: () =>
-    apiClient.get<{ success: boolean; data: AttendeeStats }>('/attendees/stats/arrival'),
+    apiClient.get<{ success: boolean; data: AttendeeStats }>('/attendees/arrival-stats'),
 
   // ==================== SEARCH ATTENDEES ====================
   searchAttendees: (query: string, by?: 'unique_id' | 'name' | 'email' | 'phone') => {
