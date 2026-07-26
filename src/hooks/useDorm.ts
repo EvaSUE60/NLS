@@ -33,7 +33,8 @@ export const useDorm = () => {
   // ==================== AUTO-FETCH ON MOUNT ====================
   useEffect(() => {
     fetchStats();
-    fetchAssignments();
+    // ✅ Remove automatic assignment fetch - this endpoint doesn't exist
+    // fetchAssignments();
   }, []);
 
   // ==================== FILTER BY STATUS ====================
@@ -49,7 +50,7 @@ export const useDorm = () => {
   // ==================== REFRESH ====================
   const refresh = () => {
     fetchStats();
-    fetchAssignments();
+    // Don't fetch assignments
   };
 
   // ==================== GET STATS SUMMARY ====================

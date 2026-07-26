@@ -12,7 +12,7 @@ const createBuildingSchema = z.object({
   type: z.enum(["men", "women"]),
   total_floors: z.number().min(1, "At least 1 floor required"),
   rooms_per_floor: z.number().min(1, "At least 1 room per floor required"),
-  default_capacity: z.number().min(2).max(4).default(4),
+  default_capacity: z.number().min(2).max(25).default(4),
   address: z.string().optional(),
   description: z.string().optional(),
 });
@@ -46,6 +46,7 @@ function getFloorName(floor: number): string {
 
 // POST: Create building with rooms
 // src/app/api/buildings/route.ts - Updated POST handler
+// src/app/api/buildings/route.ts - Full fixed POST handler
 export async function POST(request: NextRequest) {
   try {
     const authError = await requireRole(["super_admin", "admin"])(request);
@@ -78,12 +79,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create building with correct field names
+    // ✅ FIXED: Await generateBuildingId
     const building = await Building.create({
-      building_id: generateBuildingId(),
+      building_id: await generateBuildingId(),
       name,
       type,
-      floors: total_floors,  // Use 'floors' field
+      floors: total_floors,
       total_rooms: 0,
       occupied_rooms: 0,
       capacity: 0,
@@ -92,6 +93,8 @@ export async function POST(request: NextRequest) {
       description,
       is_active: true,
     });
+
+    console.log(`✅ Building created: ${building.name} (${building.building_id})`);
 
     // Generate rooms
     const floorNames = ["Ground", "1st", "2nd", "3rd", "4th", "5th"];
@@ -124,6 +127,7 @@ export async function POST(request: NextRequest) {
       try {
         const result = await Room.insertMany(rooms, { ordered: false });
         insertedCount = result.length;
+        console.log(`✅ Created ${insertedCount} rooms`);
       } catch (error: any) {
         if (error.code === 11000) {
           // Handle duplicates by inserting one by one
