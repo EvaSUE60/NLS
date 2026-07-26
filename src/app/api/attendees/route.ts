@@ -14,8 +14,8 @@ export async function GET(request: NextRequest) {
     await connectDB();
 
     const searchParams = request.nextUrl.searchParams;
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20')));
     const search = searchParams.get('search') || '';
     const region = searchParams.get('region') || '';
     const gender = searchParams.get('gender') || '';
@@ -42,8 +42,11 @@ export async function GET(request: NextRequest) {
     }
     if (paymentStatus) query.payment_status = paymentStatus;
 
-    const skip = (page - 1) * limit;
+    // Calculate total and pagination safely
     const total = await Attendee.countDocuments(query);
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const safePage = Math.min(Math.max(page, 1), totalPages);
+    const skip = (safePage - 1) * limit;
 
     const attendees = await Attendee.find(query)
       .sort({ created_at: -1 })
@@ -58,10 +61,10 @@ export async function GET(request: NextRequest) {
       data: {
         attendees,
         pagination: {
-          page,
+          page: safePage,
           limit,
           total,
-          totalPages: Math.ceil(total / limit),
+          totalPages,
         },
         filters: {
           regions: regions.sort(),
