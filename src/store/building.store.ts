@@ -9,12 +9,17 @@ interface BuildingState {
   // States
   buildings: Building[];
   selectedBuilding: Building | null;
+  selectedBuildingStats: any | null;
   isLoading: boolean;
   error: string | null;
   stats: {
     total: number;
     men: number;
     women: number;
+    total_rooms: number;
+    total_beds: number;
+    total_occupants: number;
+    total_capacity: number;
   } | null;
 
   // Actions
@@ -30,6 +35,7 @@ interface BuildingState {
 export const useBuildingStore = create<BuildingState>((set, get) => ({
   buildings: [],
   selectedBuilding: null,
+  selectedBuildingStats: null,
   isLoading: false,
   error: null,
   stats: null,
@@ -45,6 +51,10 @@ export const useBuildingStore = create<BuildingState>((set, get) => ({
         total: buildings.length,
         men: buildings.filter((b) => b.type === 'men').length,
         women: buildings.filter((b) => b.type === 'women').length,
+        total_rooms: buildings.reduce((sum, b) => sum + (b.total_rooms || 0), 0),
+        total_beds: buildings.reduce((sum, b) => sum + (b.total_beds || b.capacity || 0), 0),
+        total_occupants: buildings.reduce((sum, b) => sum + (b.total_occupants || 0), 0),
+        total_capacity: buildings.reduce((sum, b) => sum + (b.capacity || 0), 0),
       };
 
       set({ buildings, stats, isLoading: false });
@@ -61,7 +71,11 @@ export const useBuildingStore = create<BuildingState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await buildingService.getBuilding(id);
-      set({ selectedBuilding: response.data.data.building, isLoading: false });
+      set({ 
+        selectedBuilding: response.data.data.building,
+        selectedBuildingStats: response.data.data.stats || null,
+        isLoading: false 
+      });
     } catch (error: any) {
       set({
         error: error.response?.data?.message || 'Failed to fetch building',
@@ -122,6 +136,6 @@ export const useBuildingStore = create<BuildingState>((set, get) => ({
     }
   },
 
-  clearSelected: () => set({ selectedBuilding: null }),
+  clearSelected: () => set({ selectedBuilding: null, selectedBuildingStats: null }),
   clearError: () => set({ error: null }),
 }));

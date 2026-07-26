@@ -27,7 +27,7 @@ export const dormService = {
     apiClient.get<DormStatsResponse>('/dorm/stats'),
 
   // ==================== GET DORM ASSIGNMENTS ====================
-  // GET /api/dorm/assignments
+  // GET /api/dorm/assignments - May not exist, handle gracefully
   getAssignments: (filters?: AssignmentFilters) => {
     const queryParams = new URLSearchParams();
     if (filters?.status) queryParams.append('status', filters.status);

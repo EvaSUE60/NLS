@@ -148,6 +148,9 @@ export interface AttendeeSearchResult {
   arrived: boolean;
   arrival_time: string | null;
   badge_printed: boolean;
+  email?: string;
+  phone?: string;
+  local_church?: string;
   dorm_cache: {
     roomNumber: string | null;
     bedNumber: number | null;
@@ -157,6 +160,24 @@ export interface AttendeeSearchResult {
   };
   group_id?: string | null;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 export interface AttendeeSearchResponse {
   success: boolean;

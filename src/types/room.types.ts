@@ -10,6 +10,7 @@ export interface Room {
   capacity: number;
   current_occupancy: number;
   occupants: string[];
+  assignments?: any[];
   is_full: boolean;
   bed_numbers: number[];
   check_in_status: 'empty' | 'partial' | 'full';

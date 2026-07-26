@@ -22,7 +22,6 @@ import {
   ChevronRight,
   LogOut,
   Sparkles,
-  ShieldAlert,
 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 
@@ -85,6 +84,13 @@ const menuItems: MenuItem[] = [
     category: 'management',
   },
   {
+    label: 'Dorms',
+    href: '/dashboard/dorm',
+    icon: DoorOpen,
+    roles: ['admin', 'super_admin'],
+    category: 'management',
+  },
+  {
     label: 'Seminars',
     href: '/dashboard/seminars',
     icon: BookOpen,
@@ -142,22 +148,22 @@ export function Sidebar() {
         key={item.href}
         href={item.href}
         className={cn(
-          'relative flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group',
+          'relative flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition-all duration-200 group',
           active
-            ? 'bg-sky-800/90 text-white shadow-xs border border-sky-700/60'
-            : 'text-sky-400 hover:text-sky-200 hover:bg-sky-900/60'
+            ? 'bg-[#ECF4EE] text-[#0C0D0D] font-bold shadow-sm border border-[#ECF4EE]'
+            : 'text-white/60 hover:text-white hover:bg-white/5 border border-transparent'
         )}
       >
-        {/* Active Pill Indicator */}
+        {/* Mint Active Indicator Pill */}
         {active && (
-          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-sky-500 rounded-r-full shadow-sm" />
+          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-[#0C0D0D] rounded-r-full shadow-sm" />
         )}
 
         <item.icon
           size={18}
           className={cn(
             'flex-shrink-0 transition-colors duration-200',
-            active ? 'text-white' : 'text-slate-400 group-hover:text-sky-200'
+            active ? 'text-[#0C0D0D]' : 'text-white/40 group-hover:text-white'
           )}
         />
 
@@ -167,7 +173,7 @@ export function Sidebar() {
 
         {/* Floating Tooltip when collapsed */}
         {isCollapsed && (
-          <div className="absolute left-full ml-3 px-2.5 py-1.5 bg-sky-900 text-slate-200 text-xs font-medium rounded-lg shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 border border-slate-800">
+          <div className="absolute left-full ml-3 px-3 py-1.5 bg-[#0C0D0D] text-[#ECF4EE] text-xs font-semibold rounded-xl shadow-2xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 border border-white/10">
             {item.label}
           </div>
         )}
@@ -178,46 +184,52 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        'h-full bg-sky-950 border-r border-sky-800/80 transition-all duration-300 flex flex-col select-none relative',
+        'h-full bg-[#0C0D0D] text-white border-r border-white/10 transition-all duration-300 flex flex-col select-none relative z-20 shadow-xl',
         isCollapsed ? 'w-20' : 'w-64'
       )}
     >
-      {/* Brand & Toggle Header */}
+      {/* Brand Header */}
       <div
         className={cn(
-          'flex items-center h-16 px-4 border-b border-slate-800/80',
+          'flex items-center h-20 px-4 border-b border-white/10',
           isCollapsed ? 'justify-center' : 'justify-between'
         )}
       >
         {!isCollapsed ? (
           <>
-            <Link href="/dashboard" className="flex items-center gap-2.5 group">
-              <div className="w-8 h-8 rounded-xl bg-sky-900 border border-sky-800 flex items-center justify-center shadow-xs group-hover:border-slate-700 transition-all">
-                <span className="text-white font-extrabold text-sm tracking-widest">N</span>
-                <span className="w-1.5 h-1.5 rounded-full bg-red-500 -ml-0.5 mb-2" />
+            <Link href="/dashboard" className="flex items-center gap-3 group">
+              <div className="w-9 h-9 rounded-2xl bg-[#ECF4EE] text-[#0C0D0D] border border-white/20 flex items-center justify-center shadow-md font-black text-base tracking-wider transition-transform group-hover:scale-105">
+                N
               </div>
               <div className="flex flex-col">
-                <span className="font-bold text-white text-sm tracking-tight">NLS Portal</span>
-                <span className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">Edition 2026</span>
+                <span className="font-extrabold text-white text-sm tracking-tight flex items-center gap-1.5">
+                  NLS Portal
+                  <Sparkles className="w-3 h-3 text-[#ECF4EE]" />
+                </span>
+                <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest">
+                  Edition 2026
+                </span>
               </div>
             </Link>
 
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white transition-all"
+              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white transition-all active:scale-95"
             >
               <ChevronLeft size={16} />
             </button>
           </>
         ) : (
           <div className="flex flex-col items-center gap-3">
-            <Link href="/dashboard" className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center shadow-xs">
-              <span className="text-white font-extrabold text-sm">N</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500 -ml-0.5 mb-2" />
+            <Link
+              href="/dashboard"
+              className="w-9 h-9 rounded-2xl bg-[#ECF4EE] text-[#0C0D0D] border border-white/20 flex items-center justify-center shadow-md font-black text-base"
+            >
+              N
             </Link>
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white transition-all"
+              className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white transition-all active:scale-95"
             >
               <ChevronRight size={16} />
             </button>
@@ -226,11 +238,11 @@ export function Sidebar() {
       </div>
 
       {/* Navigation Body */}
-      <nav className="flex-1 overflow-y-auto p-3 space-y-6 scrollbar-thin scrollbar-thumb-slate-900">
+      <nav className="flex-1 overflow-y-auto p-3 space-y-6 scrollbar-thin scrollbar-thumb-white/10">
         {/* Main Section */}
         <div className="space-y-1">
           {!isCollapsed && (
-            <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            <p className="px-3.5 pb-2 text-[10px] font-extrabold uppercase tracking-widest text-white/30">
               Overview & Operations
             </p>
           )}
@@ -239,9 +251,9 @@ export function Sidebar() {
 
         {/* Management Section */}
         {managementSection.length > 0 && (
-          <div className="space-y-1 pt-2 border-t border-slate-800/50">
+          <div className="space-y-1 pt-3 border-t border-white/10">
             {!isCollapsed && (
-              <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              <p className="px-3.5 pb-2 text-[10px] font-extrabold uppercase tracking-widest text-white/30">
                 Administration
               </p>
             )}
@@ -250,24 +262,24 @@ export function Sidebar() {
         )}
       </nav>
 
-      {/* User Profile & Footer Section */}
-      <div className="border-t border-slate-800/80 p-3 bg-slate-950/80">
+      {/* User Profile Footer */}
+      <div className="border-t border-white/10 p-3 bg-black/30">
         {!isCollapsed ? (
-          <div className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-900/80 border border-slate-800/80">
-            <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700/80 flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-2xs">
+          <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
+            <div className="w-8 h-8 rounded-xl bg-[#ECF4EE] text-[#0C0D0D] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-sm">
               {user?.name?.charAt(0) || 'A'}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-slate-200 truncate">
+              <p className="text-xs font-bold text-white truncate">
                 {user?.name || 'Administrator'}
               </p>
-              <p className="text-[10px] text-slate-500 truncate capitalize">
+              <p className="text-[10px] font-medium text-white/40 truncate capitalize">
                 {role ? role.replace('_', ' ') : 'Staff Member'}
               </p>
             </div>
             <button
               onClick={logout}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-800 transition-colors"
+              className="p-1.5 rounded-xl text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all active:scale-95"
               title="Logout"
             >
               <LogOut size={16} />
@@ -275,12 +287,12 @@ export function Sidebar() {
           </div>
         ) : (
           <div className="flex flex-col items-center gap-3 py-1">
-            <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700/80 flex items-center justify-center text-white font-bold text-xs shadow-2xs">
+            <div className="w-8 h-8 rounded-xl bg-[#ECF4EE] text-[#0C0D0D] font-extrabold text-xs flex items-center justify-center shadow-sm">
               {user?.name?.charAt(0) || 'A'}
             </div>
             <button
               onClick={logout}
-              className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-900 transition-colors"
+              className="p-2 rounded-xl text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all active:scale-95"
               title="Logout"
             >
               <LogOut size={16} />

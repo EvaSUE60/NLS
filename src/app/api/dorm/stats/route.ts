@@ -1,4 +1,4 @@
-// src/app/api/dorm/stats/route.ts
+// src/app/api/dorm/stats/route.ts - Updated to only include active buildings
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/src/lib/mongodb";
 import Building from "@/src/models/Building";
@@ -14,12 +14,16 @@ export async function GET(request: NextRequest) {
 
     await connectDB();
 
+    // ✅ Get all active building IDs first
+    const activeBuildings = await Building.find({ is_active: true }).select('_id');
+    const activeBuildingIds = activeBuildings.map(b => b._id);
+
     // ==================== BUILDING STATS ====================
-    const totalBuildings = await Building.countDocuments({ is_active: true });
+    const totalBuildings = activeBuildings.length;
     const menBuildings = await Building.countDocuments({ type: "men", is_active: true });
     const womenBuildings = await Building.countDocuments({ type: "women", is_active: true });
 
-    // Get detailed building stats
+    // Get detailed building stats - only for active buildings
     const buildingDetails = await Building.aggregate([
       { $match: { is_active: true } },
       {
@@ -53,38 +57,32 @@ export async function GET(request: NextRequest) {
       },
     ]);
 
-    // ==================== ROOM STATS ====================
-    const totalRooms = await Room.countDocuments({ is_active: true });
-    const availableRooms = await Room.countDocuments({ 
+    // ==================== ROOM STATS - Only from active buildings ====================
+    const rooms = await Room.find({ 
       is_active: true,
-      is_full: false 
+      building_id: { $in: activeBuildingIds }
     });
-    const occupiedRooms = await Room.countDocuments({ 
-      is_active: true,
-      is_full: true 
-    });
-    const emptyRooms = await Room.countDocuments({ 
-      is_active: true,
-      check_in_status: "empty" 
-    });
-    const partialRooms = await Room.countDocuments({ 
-      is_active: true,
-      check_in_status: "partial" 
-    });
-    const fullRooms = await Room.countDocuments({ 
-      is_active: true,
-      check_in_status: "full" 
-    });
+    
+    const totalRooms = rooms.length;
+    const availableRooms = rooms.filter(r => !r.is_full).length;
+    const occupiedRooms = rooms.filter(r => r.is_full).length;
+    const emptyRooms = rooms.filter(r => r.check_in_status === "empty").length;
+    const partialRooms = rooms.filter(r => r.check_in_status === "partial").length;
+    const fullRooms = rooms.filter(r => r.check_in_status === "full").length;
 
     // ==================== BED STATS ====================
-    const rooms = await Room.find({ is_active: true });
     const totalBeds = rooms.reduce((sum, r) => sum + r.capacity, 0);
     const occupiedBeds = rooms.reduce((sum, r) => sum + r.current_occupancy, 0);
     const availableBeds = totalBeds - occupiedBeds;
 
     // Bed occupancy by building type
     const bedStatsByType = await Room.aggregate([
-      { $match: { is_active: true } },
+      { 
+        $match: { 
+          is_active: true,
+          building_id: { $in: activeBuildingIds }
+        } 
+      },
       {
         $group: {
           _id: '$building_type',
@@ -101,7 +99,7 @@ export async function GET(request: NextRequest) {
     const changedAssignments = await DormAssignment.countDocuments({ status: "changed" });
     const totalAssignments = await DormAssignment.countDocuments();
 
-    // Assignments by building
+    // Assignments by building - only active buildings
     const assignmentsByBuilding = await DormAssignment.aggregate([
       { $match: { status: "active" } },
       {
@@ -113,6 +111,7 @@ export async function GET(request: NextRequest) {
         },
       },
       { $unwind: '$building' },
+      { $match: { 'building.is_active': true } },
       {
         $group: {
           _id: '$building_id',
@@ -168,7 +167,12 @@ export async function GET(request: NextRequest) {
 
     // ==================== ROOM OCCUPANCY DISTRIBUTION ====================
     const occupancyDistribution = await Room.aggregate([
-      { $match: { is_active: true } },
+      { 
+        $match: { 
+          is_active: true,
+          building_id: { $in: activeBuildingIds }
+        } 
+      },
       {
         $group: {
           _id: '$current_occupancy',
@@ -202,15 +206,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
-        // Building Summary
         buildings: {
           total: totalBuildings,
           men: menBuildings,
           women: womenBuildings,
           details: buildingDetails,
         },
-
-        // Room Summary
         rooms: {
           total: totalRooms,
           available: availableRooms,
@@ -221,16 +222,12 @@ export async function GET(request: NextRequest) {
           occupancy_rate: Number(roomOccupancyRate.toFixed(1)),
           by_type: bedStatsByType,
         },
-
-        // Bed Summary
         beds: {
           total: totalBeds,
           occupied: occupiedBeds,
           available: availableBeds,
           occupancy_rate: Number(bedOccupancyRate.toFixed(1)),
         },
-
-        // Assignment Summary
         assignments: {
           active: activeAssignments,
           cancelled: cancelledAssignments,
@@ -242,8 +239,6 @@ export async function GET(request: NextRequest) {
             week: weekAssignments,
           },
         },
-
-        // Attendee Summary
         attendees: {
           total: totalAttendees,
           assigned: assignedAttendees,
@@ -252,8 +247,6 @@ export async function GET(request: NextRequest) {
           by_gender: attendeesByGender,
           by_region: attendeesByRegion,
         },
-
-        // Room Occupancy Distribution
         occupancy_distribution: occupancyDistribution,
       },
     });

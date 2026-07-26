@@ -71,7 +71,7 @@ export const useDormStore = create<DormState>((set, get) => ({
   },
 
   // ==================== FETCH ASSIGNMENTS ====================
-  // GET /api/dorm/assignments
+  // GET /api/dorm/assignments - Only call when explicitly requested
   fetchAssignments: async (filters) => {
     set({ isLoading: true, error: null });
     try {
@@ -84,8 +84,10 @@ export const useDormStore = create<DormState>((set, get) => ({
         isLoading: false,
       });
     } catch (error: any) {
+      // ✅ Don't throw error, just log it - endpoint might not exist
+      console.log('Assignments endpoint not available:', error.message);
       set({
-        error: error.response?.data?.message || 'Failed to fetch assignments',
+        assignments: [],
         isLoading: false,
       });
     }
@@ -120,9 +122,8 @@ export const useDormStore = create<DormState>((set, get) => ({
         isProcessing: false,
       });
       
-      // Refresh stats and assignments
+      // Refresh stats after auto-assign
       await get().fetchStats();
-      await get().fetchAssignments();
       
       return response.data;
     } catch (error: any) {
@@ -144,9 +145,8 @@ export const useDormStore = create<DormState>((set, get) => ({
         isProcessing: false,
       });
       
-      // Refresh stats and assignments
+      // Refresh stats after reset
       await get().fetchStats();
-      await get().fetchAssignments();
       
       return response.data;
     } catch (error: any) {

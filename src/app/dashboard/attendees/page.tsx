@@ -19,15 +19,13 @@ import {
   MapPin,
   Church,
   GraduationCap,
-  Bed,
   DoorOpen,
-  Building2,
   Clock,
   CheckCircle2,
   Loader2,
-  Sparkles,
   ShieldCheck,
-  UserPlus
+  Sparkles,
+  Filter
 } from 'lucide-react';
 import { useAttendee } from '@/src/hooks/useAttendee';
 import { Badge } from '@/src/components/ui/Badge';
@@ -140,25 +138,31 @@ export default function AttendeesPage() {
 
   if (isLoading && attendees.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] rounded-2xl bg-white/60 border border-slate-200/80 backdrop-blur-md">
+      <div className="flex flex-col items-center justify-center min-h-[450px] rounded-3xl bg-[#FFFFFF]/70 border border-[#ECF4EE] backdrop-blur-xl shadow-xl">
         <div className="relative flex items-center justify-center">
-          <div className="absolute inset-0 rounded-full bg-slate-900/5 blur-xl animate-pulse" />
-          <Loader2 className="h-10 w-10 text-slate-900 animate-spin relative z-10" />
+          <div className="absolute inset-0 rounded-full bg-[#ECF4EE] blur-2xl animate-pulse" />
+          <Loader2 className="h-10 w-10 text-[#0C0D0D] animate-spin relative z-10" />
         </div>
-        <p className="mt-4 text-sm font-medium text-slate-600 tracking-wide">Loading Attendee Directory...</p>
+        <p className="mt-4 text-xs font-semibold uppercase tracking-widest text-[#0C0D0D]/60">
+          Loading Directory Engine...
+        </p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50/50 border border-red-200/80 rounded-2xl p-8 text-center backdrop-blur-sm max-w-lg mx-auto my-12">
-        <div className="w-12 h-12 rounded-full bg-red-100/80 text-red-600 flex items-center justify-center mx-auto mb-4">
+      <div className="bg-[#FFFFFF]/80 border border-red-200/80 rounded-3xl p-8 text-center backdrop-blur-xl shadow-xl max-w-lg mx-auto my-12">
+        <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mx-auto mb-4 border border-red-100">
           <X className="w-6 h-6" />
         </div>
-        <h3 className="text-base font-semibold text-slate-900">System Interruption</h3>
-        <p className="mt-1 text-sm text-slate-600">{error}</p>
-        <Button variant="primary" className="mt-6 bg-slate-900 hover:bg-slate-800 text-white shadow-md rounded-xl px-6" onClick={() => { clearError(); refetch(); }}>
+        <h3 className="text-lg font-bold text-[#0C0D0D]">System Interruption</h3>
+        <p className="mt-1 text-xs text-[#0C0D0D]/60">{error}</p>
+        <Button
+          variant="primary"
+          className="mt-6 bg-[#0C0D0D] hover:bg-[#0C0D0D]/90 text-white shadow-md rounded-2xl px-6 py-2.5 text-xs font-semibold tracking-wide"
+          onClick={() => { clearError(); refetch(); }}
+        >
           Retry Connection
         </Button>
       </div>
@@ -166,82 +170,86 @@ export default function AttendeesPage() {
   }
 
   return (
-    <div className="space-y-8 max-w-[1600px] mx-auto p-2 sm:p-4">
-      {/* ==================== PAGE HEADER ==================== */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Attendee Directory</h1>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-              Live
-            </span>
-          </div>
-          <p className="text-sm text-slate-500 mt-1 font-normal">Manage registration, real-time check-ins, and housing details.</p>
-        </div>
+    <div className="min-h-screen bg-[#FAFAFA] p-3 sm:p-6 space-y-8 max-w-[1600px] mx-auto text-[#0C0D0D]">
+      
+      {/* ==================== HERO HEADER ==================== */}
+      <div className="relative overflow-hidden rounded-3xl bg-[#0C0D0D] text-white p-6 sm:p-8 shadow-2xl border border-white/10">
+        {/* Mint Glass Backdrop Glow */}
+        <div className="absolute -top-24 -right-24 w-96 h-96 bg-[#ECF4EE]/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-[#ECF4EE]/5 rounded-full blur-2xl pointer-events-none" />
 
-        <div className="flex items-center gap-2.5">
-          <Button
-            variant="secondary"
-            size="sm"
-            className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 shadow-xs rounded-xl px-3.5 py-2 h-10 font-medium text-xs tracking-wide"
-            onClick={() => refetch()}
-            disabled={isLoading}
-          >
-            <RefreshCw className={`h-3.5 w-3.5 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Sync Data
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 shadow-xs rounded-xl px-3.5 py-2 h-10 font-medium text-xs tracking-wide"
-          >
-            <Download className="h-3.5 w-3.5 mr-2" />
-            Export
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            className="bg-slate-900 hover:bg-slate-800 text-white shadow-sm rounded-xl px-4 py-2 h-10 font-medium text-xs tracking-wide transition-all"
-            onClick={() => router.push('/dashboard/attendees/create')}
-          >
-            <Plus className="h-4 w-4 mr-1.5" />
-            Add Attendee
-          </Button>
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-[#ECF4EE]/15 text-[#ECF4EE] border border-[#ECF4EE]/20 backdrop-blur-md">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Attendee Management Suite</span>
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+              Attendee Directory
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-300 font-normal max-w-xl">
+              Real-time attendee check-in management, accommodation allocation, and regional tracking.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => refetch()}
+              disabled={isLoading}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-white border border-white/15 backdrop-blur-md transition-all active:scale-95 disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+              Sync
+            </button>
+            <button
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-white border border-white/15 backdrop-blur-md transition-all active:scale-95"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Export
+            </button>
+            <button
+              onClick={() => router.push('/dashboard/attendees/create')}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold bg-[#ECF4EE] text-[#0C0D0D] hover:bg-white transition-all shadow-lg shadow-[#ECF4EE]/10 active:scale-95"
+            >
+              <Plus className="h-4 w-4" />
+              Add Attendee
+            </button>
+          </div>
         </div>
       </div>
 
       {/* ==================== STATS CARDS ==================== */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-        {/* Total Card */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs hover:shadow-md transition-all duration-200">
-          <div className="flex items-start justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Directory</span>
-            <div className="p-2.5 rounded-xl bg-slate-900 text-white shadow-xs">
+        {/* Total Directory Card */}
+        <div className="relative overflow-hidden rounded-3xl bg-white/80 border border-[#ECF4EE] p-6 backdrop-blur-xl shadow-xs hover:shadow-xl transition-all duration-300">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#0C0D0D]/50">Total Directory</span>
+            <div className="p-3 rounded-2xl bg-[#0C0D0D] text-[#ECF4EE] shadow-sm">
               <Users className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-4">
-            <div className="text-3xl font-bold text-slate-900 tracking-tight">{total}</div>
-            <div className="mt-2 flex items-center gap-2 text-xs text-slate-500 font-medium">
-              <span className="text-slate-700 font-semibold">{attendees.filter(a => a.gender === 'Male').length} Male</span>
-              <span className="text-slate-300">•</span>
-              <span className="text-slate-700 font-semibold">{attendees.filter(a => a.gender === 'Female').length} Female</span>
+            <div className="text-3xl sm:text-4xl font-extrabold text-[#0C0D0D] tracking-tight">{total}</div>
+            <div className="mt-2 flex items-center gap-2 text-xs font-medium text-[#0C0D0D]/60">
+              <span className="font-semibold">{attendees.filter(a => a.gender === 'Male').length} Male</span>
+              <span>•</span>
+              <span className="font-semibold">{attendees.filter(a => a.gender === 'Female').length} Female</span>
             </div>
           </div>
         </div>
 
         {/* Checked In Card */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs hover:shadow-md transition-all duration-200">
-          <div className="flex items-start justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Checked In</span>
-            <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100">
+        <div className="relative overflow-hidden rounded-3xl bg-white/80 border border-[#ECF4EE] p-6 backdrop-blur-xl shadow-xs hover:shadow-xl transition-all duration-300">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#0C0D0D]/50">Checked In</span>
+            <div className="p-3 rounded-2xl bg-[#ECF4EE] text-[#0C0D0D]">
               <UserCheck className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-4">
-            <div className="text-3xl font-bold text-emerald-600 tracking-tight">{arrived}</div>
-            <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-              <span className="inline-flex items-center text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">
+            <div className="text-3xl sm:text-4xl font-extrabold text-[#0C0D0D] tracking-tight">{arrived}</div>
+            <div className="mt-2 flex items-center gap-1.5 text-xs font-medium text-[#0C0D0D]/60">
+              <span className="inline-flex items-center font-bold bg-[#ECF4EE] text-[#0C0D0D] px-2 py-0.5 rounded-lg text-[11px]">
                 {total > 0 ? Math.round((arrived / total) * 100) : 0}%
               </span>
               <span>completion rate</span>
@@ -249,63 +257,68 @@ export default function AttendeesPage() {
           </div>
         </div>
 
-        {/* Remaining Card */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs hover:shadow-md transition-all duration-200">
-          <div className="flex items-start justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Pending Arrival</span>
-            <div className="p-2.5 rounded-xl bg-amber-50 text-amber-600 border border-amber-100">
+        {/* Pending Arrival Card */}
+        <div className="relative overflow-hidden rounded-3xl bg-white/80 border border-[#ECF4EE] p-6 backdrop-blur-xl shadow-xs hover:shadow-xl transition-all duration-300">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#0C0D0D]/50">Pending Check-in</span>
+            <div className="p-3 rounded-2xl bg-amber-50 text-amber-700 border border-amber-100">
               <Clock className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-4">
-            <div className="text-3xl font-bold text-amber-600 tracking-tight">{notArrived}</div>
-            <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-              <span className="inline-flex items-center text-amber-700 font-bold bg-amber-50 px-1.5 py-0.5 rounded">
+            <div className="text-3xl sm:text-4xl font-extrabold text-amber-700 tracking-tight">{notArrived}</div>
+            <div className="mt-2 flex items-center gap-1.5 text-xs font-medium text-[#0C0D0D]/60">
+              <span className="inline-flex items-center font-bold bg-amber-50 text-amber-800 px-2 py-0.5 rounded-lg text-[11px]">
                 {total > 0 ? Math.round((notArrived / total) * 100) : 0}%
               </span>
-              <span>pending check-in</span>
+              <span>awaiting arrival</span>
             </div>
           </div>
         </div>
 
-        {/* Regions Card */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs hover:shadow-md transition-all duration-200">
-          <div className="flex items-start justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Regions</span>
-            <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100">
+        {/* Active Regions Card */}
+        <div className="relative overflow-hidden rounded-3xl bg-white/80 border border-[#ECF4EE] p-6 backdrop-blur-xl shadow-xs hover:shadow-xl transition-all duration-300">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#0C0D0D]/50">Regions</span>
+            <div className="p-3 rounded-2xl bg-[#0C0D0D]/5 text-[#0C0D0D]">
               <MapPin className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-4">
-            <div className="text-3xl font-bold text-slate-900 tracking-tight">{regions?.length || 0}</div>
-            <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-              <span>Active geographical sectors</span>
+            <div className="text-3xl sm:text-4xl font-extrabold text-[#0C0D0D] tracking-tight">{regions?.length || 0}</div>
+            <div className="mt-2 text-xs font-medium text-[#0C0D0D]/60">
+              Geographical distribution
             </div>
           </div>
         </div>
       </div>
 
-      {/* ==================== CONTROLS / FILTERS BAR ==================== */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-3 sm:p-4 shadow-xs">
+      {/* ==================== FILTERS & SEARCH ==================== */}
+      <div className="rounded-3xl bg-white/80 border border-[#ECF4EE] p-4 backdrop-blur-xl shadow-sm">
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
           {/* Search Box */}
           <div className="flex-1 relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[#0C0D0D]/40 pointer-events-none" />
             <input
               type="text"
-              placeholder="Search by name, ID, or email address..."
+              placeholder="Search by attendee name, unique ID, or email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-slate-50/50 border border-slate-200/90 rounded-xl text-sm font-normal text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all"
+              className="w-full pl-11 pr-4 py-3 bg-[#FAFAFA] border border-[#ECF4EE] rounded-2xl text-xs font-medium text-[#0C0D0D] placeholder:text-[#0C0D0D]/40 focus:outline-none focus:ring-2 focus:ring-[#0C0D0D] transition-all"
             />
           </div>
 
           {/* Filters */}
-          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5">
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+            <div className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase text-[#0C0D0D]/40">
+              <Filter className="h-3.5 w-3.5" />
+              <span>Filters</span>
+            </div>
+
             <select
               value={selectedRegion}
               onChange={(e) => setSelectedRegion(e.target.value)}
-              className="px-3.5 py-2 bg-slate-50/50 border border-slate-200/90 rounded-xl text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all cursor-pointer h-9"
+              className="px-4 py-2.5 bg-[#FAFAFA] border border-[#ECF4EE] rounded-2xl text-xs font-semibold text-[#0C0D0D] focus:outline-none focus:ring-2 focus:ring-[#0C0D0D] transition-all cursor-pointer h-11"
             >
               <option value="all">All Regions</option>
               {regions?.map((r) => (
@@ -316,7 +329,7 @@ export default function AttendeesPage() {
             <select
               value={selectedGender}
               onChange={(e) => setSelectedGender(e.target.value)}
-              className="px-3.5 py-2 bg-slate-50/50 border border-slate-200/90 rounded-xl text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all cursor-pointer h-9"
+              className="px-4 py-2.5 bg-[#FAFAFA] border border-[#ECF4EE] rounded-2xl text-xs font-semibold text-[#0C0D0D] focus:outline-none focus:ring-2 focus:ring-[#0C0D0D] transition-all cursor-pointer h-11"
             >
               <option value="all">All Genders</option>
               <option value="Male">Male</option>
@@ -326,50 +339,52 @@ export default function AttendeesPage() {
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="px-3.5 py-2 bg-slate-50/50 border border-slate-200/90 rounded-xl text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all cursor-pointer h-9"
+              className="px-4 py-2.5 bg-[#FAFAFA] border border-[#ECF4EE] rounded-2xl text-xs font-semibold text-[#0C0D0D] focus:outline-none focus:ring-2 focus:ring-[#0C0D0D] transition-all cursor-pointer h-11"
             >
               <option value="all">All Status</option>
               <option value="arrived">Checked In</option>
-              <option value="not-arrived">Pending Arrival</option>
+              <option value="not-arrived">Pending Check-in</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* ==================== TABLE CONTAINER ==================== */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+      {/* ==================== ATTENDEE DIRECTORY TABLE ==================== */}
+      <div className="rounded-3xl bg-white/80 border border-[#ECF4EE] backdrop-blur-xl shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50/80 border-b border-slate-200/80">
-                <th className="px-5 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Attendee
+              <tr className="bg-[#FAFAFA] border-b border-[#ECF4EE]">
+                <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-[#0C0D0D]/50">
+                  Attendee Info
                 </th>
-                <th className="px-5 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-[#0C0D0D]/50">
                   Contact
                 </th>
-                <th className="px-5 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-[#0C0D0D]/50">
                   Region & Gender
                 </th>
-                <th className="px-5 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Housing / Room
+                <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-[#0C0D0D]/50">
+                  Housing Allocation
                 </th>
-                <th className="px-5 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-[#0C0D0D]/50">
                   Status
                 </th>
-                <th className="px-5 py-3.5 text-right text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <th className="px-6 py-4 text-right text-[10px] font-extrabold uppercase tracking-widest text-[#0C0D0D]/50">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-[#ECF4EE]/60">
               {attendees.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-16 text-center text-slate-400">
-                    <div className="max-w-xs mx-auto">
-                      <Users className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-                      <p className="text-sm font-medium text-slate-600">No attendees matched your filter</p>
-                      <p className="text-xs text-slate-400 mt-1">Try adjusting search parameters or clear filters.</p>
+                  <td colSpan={6} className="px-6 py-20 text-center">
+                    <div className="max-w-xs mx-auto space-y-2">
+                      <div className="w-12 h-12 rounded-2xl bg-[#ECF4EE] text-[#0C0D0D] flex items-center justify-center mx-auto mb-3">
+                        <Users className="h-6 w-6" />
+                      </div>
+                      <p className="text-sm font-bold text-[#0C0D0D]">No attendees found</p>
+                      <p className="text-xs text-[#0C0D0D]/50">Adjust your active search query or filter settings.</p>
                     </div>
                   </td>
                 </tr>
@@ -377,24 +392,22 @@ export default function AttendeesPage() {
                 attendees.map((attendee) => (
                   <tr
                     key={attendee._id}
-                    className="group hover:bg-slate-50/80 transition-colors duration-150 cursor-pointer"
+                    className="group hover:bg-[#ECF4EE]/30 transition-all duration-200 cursor-pointer"
                     onClick={() => handleView(attendee)}
                   >
                     {/* Attendee Name & ID */}
-                    <td className="px-5 py-4">
+                    <td className="px-6 py-4">
                       <div className="flex items-center gap-3.5">
-                        <div className="relative">
-                          <Avatar
-                            name={`${attendee.first_name} ${attendee.last_name}`}
-                            size="md"
-                            className="rounded-full shadow-2xs ring-1 ring-slate-200"
-                          />
-                        </div>
+                        <Avatar
+                          name={`${attendee.first_name} ${attendee.last_name}`}
+                          size="md"
+                          className="rounded-2xl ring-2 ring-[#ECF4EE] bg-[#0C0D0D] text-white"
+                        />
                         <div>
-                          <p className="text-sm font-semibold text-slate-900 group-hover:text-slate-900 transition-colors">
+                          <p className="text-sm font-bold text-[#0C0D0D] group-hover:text-black">
                             {attendee.first_name} {attendee.last_name}
                           </p>
-                          <p className="text-[11px] font-mono text-slate-400 tracking-tight mt-0.5">
+                          <p className="text-[11px] font-mono font-medium text-[#0C0D0D]/40 mt-0.5">
                             {attendee.unique_id}
                           </p>
                         </div>
@@ -402,60 +415,58 @@ export default function AttendeesPage() {
                     </td>
 
                     {/* Contact Info */}
-                    <td className="px-5 py-4">
+                    <td className="px-6 py-4">
                       <div className="space-y-0.5">
-                        <p className="text-xs font-medium text-slate-700">{attendee.email}</p>
-                        <p className="text-[11px] text-slate-400">{attendee.phone}</p>
+                        <p className="text-xs font-semibold text-[#0C0D0D]">{attendee.email}</p>
+                        <p className="text-[11px] text-[#0C0D0D]/50">{attendee.phone}</p>
                       </div>
                     </td>
 
                     {/* Region */}
-                    <td className="px-5 py-4">
+                    <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-slate-700">{attendee.region}</span>
-                        <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200/60 px-2 py-0.5 rounded-full">
+                        <span className="text-xs font-bold text-[#0C0D0D]">{attendee.region}</span>
+                        <span className="text-[10px] font-bold text-[#0C0D0D] bg-[#ECF4EE] px-2 py-0.5 rounded-md border border-[#ECF4EE]">
                           {attendee.gender}
                         </span>
                       </div>
                     </td>
 
                     {/* Room */}
-                    <td className="px-5 py-4">
+                    <td className="px-6 py-4">
                       {attendee.dorm_cache?.roomNumber ? (
-                        <div className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-slate-50 border border-slate-200/60 px-2.5 py-1 rounded-lg">
-                          <DoorOpen className="h-3.5 w-3.5 text-slate-400" />
+                        <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0C0D0D] bg-[#FAFAFA] border border-[#ECF4EE] px-3 py-1 rounded-xl">
+                          <DoorOpen className="h-3.5 w-3.5 text-[#0C0D0D]/50" />
                           <span>Rm {attendee.dorm_cache.roomNumber}</span>
-                          <span className="text-slate-300">•</span>
-                          <span className="text-slate-500">Bed {attendee.dorm_cache.bedNumber}</span>
+                          <span className="text-[#0C0D0D]/20">•</span>
+                          <span className="text-[#0C0D0D]/60">Bed {attendee.dorm_cache.bedNumber}</span>
                         </div>
                       ) : (
-                        <span className="text-xs text-slate-400 italic">Unassigned</span>
+                        <span className="text-xs text-[#0C0D0D]/30 italic font-medium">Unassigned</span>
                       )}
                     </td>
 
                     {/* Status */}
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-2">
-                        {attendee.arrived ? (
-                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
-                            <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                            <span>Checked In</span>
-                          </div>
-                        ) : (
-                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200/60">
-                            <Clock className="h-3 w-3 text-amber-500" />
-                            <span>Pending</span>
-                          </div>
-                        )}
-                      </div>
+                    <td className="px-6 py-4">
+                      {attendee.arrived ? (
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-[#ECF4EE] text-[#0C0D0D] border border-[#ECF4EE]">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-[#0C0D0D]" />
+                          <span>Checked In</span>
+                        </div>
+                      ) : (
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200/80">
+                          <Clock className="h-3.5 w-3.5 text-amber-600" />
+                          <span>Pending</span>
+                        </div>
+                      )}
                     </td>
 
                     {/* Actions */}
-                    <td className="px-5 py-4 text-right">
-                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                         {!attendee.arrived && (
                           <button
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
+                            className="p-2 rounded-xl bg-[#ECF4EE]/60 hover:bg-[#ECF4EE] text-[#0C0D0D] transition-all active:scale-95"
                             onClick={() => handleCheckIn(attendee._id)}
                             disabled={isCheckingIn}
                             title="Check In Attendee"
@@ -464,14 +475,14 @@ export default function AttendeesPage() {
                           </button>
                         )}
                         <button
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-all"
+                          className="p-2 rounded-xl hover:bg-[#ECF4EE]/50 text-[#0C0D0D]/60 hover:text-[#0C0D0D] transition-all"
                           onClick={() => handleView(attendee)}
-                          title="View Details"
+                          title="View Dossier"
                         >
                           <Eye className="h-4 w-4" />
                         </button>
                         <button
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all"
+                          className="p-2 rounded-xl hover:bg-red-50 text-red-400 hover:text-red-600 transition-all"
                           onClick={() => handleDelete(attendee._id)}
                           disabled={isDeleting}
                           title="Delete Record"
@@ -489,11 +500,11 @@ export default function AttendeesPage() {
 
         {/* Pagination Footer */}
         {pagination && pagination.totalPages > 1 && (
-          <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-xs text-slate-500 font-medium">
-              Showing <span className="font-semibold text-slate-800">{(pagination.page - 1) * pagination.limit + 1}</span> to{' '}
-              <span className="font-semibold text-slate-800">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> of{' '}
-              <span className="font-semibold text-slate-800">{pagination.total}</span> attendees
+          <div className="px-6 py-4 bg-[#FAFAFA] border-t border-[#ECF4EE] flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-xs text-[#0C0D0D]/60 font-medium">
+              Showing <span className="font-bold text-[#0C0D0D]">{(pagination.page - 1) * pagination.limit + 1}</span> to{' '}
+              <span className="font-bold text-[#0C0D0D]">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> of{' '}
+              <span className="font-bold text-[#0C0D0D]">{pagination.total}</span> entries
             </p>
             <div className="flex items-center gap-2">
               <Button
@@ -501,12 +512,12 @@ export default function AttendeesPage() {
                 size="sm"
                 disabled={pagination.page === 1}
                 onClick={() => goToPage(pagination.page - 1)}
-                className="bg-white border border-slate-200/90 text-slate-700 h-8 px-3 text-xs rounded-lg font-medium shadow-2xs disabled:opacity-50"
+                className="bg-white border border-[#ECF4EE] text-[#0C0D0D] h-9 px-4 text-xs rounded-xl font-bold disabled:opacity-40"
               >
                 <ChevronLeft className="h-3.5 w-3.5 mr-1" />
                 Previous
               </Button>
-              <span className="text-xs font-semibold text-slate-700 px-2">
+              <span className="text-xs font-extrabold text-[#0C0D0D] px-2">
                 {pagination.page} / {pagination.totalPages}
               </span>
               <Button
@@ -514,7 +525,7 @@ export default function AttendeesPage() {
                 size="sm"
                 disabled={pagination.page === pagination.totalPages}
                 onClick={() => goToPage(pagination.page + 1)}
-                className="bg-white border border-slate-200/90 text-slate-700 h-8 px-3 text-xs rounded-lg font-medium shadow-2xs disabled:opacity-50"
+                className="bg-white border border-[#ECF4EE] text-[#0C0D0D] h-9 px-4 text-xs rounded-xl font-bold disabled:opacity-40"
               >
                 Next
                 <ChevronRight className="h-3.5 w-3.5 ml-1" />
@@ -524,19 +535,19 @@ export default function AttendeesPage() {
         )}
       </div>
 
-      {/* ==================== LUXURY MODAL OVERLAY ==================== */}
+      {/* ==================== GLASSMORPHIC DOSSIER MODAL ==================== */}
       {viewModalOpen && selectedAttendee && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl w-full max-w-xl max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200/80">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0C0D0D]/70 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-xl max-h-[90vh] overflow-y-auto shadow-2xl border border-[#ECF4EE]">
             {/* Modal Header */}
-            <div className="sticky top-0 bg-white/90 backdrop-blur-md border-b border-slate-100 px-6 py-4 flex items-center justify-between z-10">
+            <div className="sticky top-0 bg-white/90 backdrop-blur-md border-b border-[#ECF4EE] px-6 py-4 flex items-center justify-between z-10">
               <div className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-slate-400" />
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Attendee Dossier</span>
+                <ShieldCheck className="h-4 w-4 text-[#0C0D0D]" />
+                <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#0C0D0D]/60">Attendee Dossier</span>
               </div>
               <button
                 onClick={() => setViewModalOpen(false)}
-                className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                className="p-2 rounded-2xl hover:bg-[#ECF4EE] text-[#0C0D0D]/60 hover:text-[#0C0D0D] transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -544,116 +555,115 @@ export default function AttendeesPage() {
 
             {/* Modal Body */}
             <div className="p-6 space-y-6">
-              {/* Main Avatar & Name */}
-              <div className="flex items-center gap-4 bg-slate-50/60 p-4 rounded-2xl border border-slate-100">
+              {/* Header Hero Box */}
+              <div className="flex items-center gap-4 bg-[#FAFAFA] p-5 rounded-2xl border border-[#ECF4EE]">
                 <Avatar
                   name={`${selectedAttendee.first_name} ${selectedAttendee.last_name}`}
                   size="lg"
-                  className="rounded-full shadow-xs ring-2 ring-white"
+                  className="rounded-2xl shadow-md ring-2 ring-[#ECF4EE] bg-[#0C0D0D] text-white"
                 />
                 <div className="space-y-1">
-                  <h3 className="text-lg font-bold text-slate-900 tracking-tight">
+                  <h3 className="text-xl font-extrabold text-[#0C0D0D] tracking-tight">
                     {selectedAttendee.first_name} {selectedAttendee.last_name}
                   </h3>
-                  <p className="text-xs font-mono text-slate-400">{selectedAttendee.unique_id}</p>
+                  <p className="text-xs font-mono text-[#0C0D0D]/50">{selectedAttendee.unique_id}</p>
 
-                  <div className="flex items-center gap-1.5 pt-1">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-200/60 text-slate-700">
+                  <div className="flex items-center gap-2 pt-1">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-[#ECF4EE] text-[#0C0D0D]">
                       {selectedAttendee.gender}
                     </span>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold ${selectedAttendee.arrived ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                      }`}>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-[10px] font-bold ${
+                      selectedAttendee.arrived ? 'bg-[#0C0D0D] text-white' : 'bg-amber-100 text-amber-900'
+                    }`}>
                       {selectedAttendee.arrived ? 'Checked In' : 'Pending'}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Grid Section */}
+              {/* Info Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Contact Section */}
-                <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs space-y-3">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Contact Information</span>
+                {/* Contact Info */}
+                <div className="bg-white border border-[#ECF4EE] rounded-2xl p-4 space-y-3">
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#0C0D0D]/40">Contact Info</span>
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2.5 text-xs text-slate-700">
-                      <Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                    <div className="flex items-center gap-2.5 text-xs text-[#0C0D0D] font-medium">
+                      <Mail className="h-3.5 w-3.5 text-[#0C0D0D]/40 shrink-0" />
                       <span className="truncate">{selectedAttendee.email}</span>
                     </div>
-                    <div className="flex items-center gap-2.5 text-xs text-slate-700">
-                      <Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                    <div className="flex items-center gap-2.5 text-xs text-[#0C0D0D] font-medium">
+                      <Phone className="h-3.5 w-3.5 text-[#0C0D0D]/40 shrink-0" />
                       <span>{selectedAttendee.phone}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Location Section */}
-                <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs space-y-3">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Affiliation & Region</span>
+                {/* Affiliation & Region */}
+                <div className="bg-white border border-[#ECF4EE] rounded-2xl p-4 space-y-3">
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#0C0D0D]/40">Affiliation & Region</span>
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2.5 text-xs text-slate-700">
-                      <Church className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                    <div className="flex items-center gap-2.5 text-xs text-[#0C0D0D] font-medium">
+                      <Church className="h-3.5 w-3.5 text-[#0C0D0D]/40 shrink-0" />
                       <span className="truncate">{selectedAttendee.local_church || 'N/A'}</span>
                     </div>
-                    <div className="flex items-center gap-2.5 text-xs text-slate-700">
-                      <GraduationCap className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                    <div className="flex items-center gap-2.5 text-xs text-[#0C0D0D] font-medium">
+                      <GraduationCap className="h-3.5 w-3.5 text-[#0C0D0D]/40 shrink-0" />
                       <span className="truncate">{selectedAttendee.campus || 'N/A'}</span>
                     </div>
-                    <div className="flex items-center gap-2.5 text-xs text-slate-700">
-                      <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                    <div className="flex items-center gap-2.5 text-xs text-[#0C0D0D] font-medium">
+                      <MapPin className="h-3.5 w-3.5 text-[#0C0D0D]/40 shrink-0" />
                       <span>{selectedAttendee.region}</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Housing Details */}
-                <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs space-y-3 sm:col-span-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Housing Allocation</span>
+                <div className="bg-white border border-[#ECF4EE] rounded-2xl p-4 space-y-3 sm:col-span-2">
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#0C0D0D]/40">Housing Details</span>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
-                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                      <p className="text-[10px] text-slate-400 uppercase font-semibold">Room</p>
-                      <p className="text-xs font-bold text-slate-800 mt-0.5">{selectedAttendee.dorm_cache?.roomNumber || 'None'}</p>
+                    <div className="bg-[#FAFAFA] p-3 rounded-xl border border-[#ECF4EE]">
+                      <p className="text-[10px] text-[#0C0D0D]/40 uppercase font-extrabold">Room</p>
+                      <p className="text-xs font-extrabold text-[#0C0D0D] mt-0.5">{selectedAttendee.dorm_cache?.roomNumber || 'None'}</p>
                     </div>
-                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                      <p className="text-[10px] text-slate-400 uppercase font-semibold">Bed</p>
-                      <p className="text-xs font-bold text-slate-800 mt-0.5">{selectedAttendee.dorm_cache?.bedNumber || 'None'}</p>
+                    <div className="bg-[#FAFAFA] p-3 rounded-xl border border-[#ECF4EE]">
+                      <p className="text-[10px] text-[#0C0D0D]/40 uppercase font-extrabold">Bed</p>
+                      <p className="text-xs font-extrabold text-[#0C0D0D] mt-0.5">{selectedAttendee.dorm_cache?.bedNumber || 'None'}</p>
                     </div>
-                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                      <p className="text-[10px] text-slate-400 uppercase font-semibold">Building</p>
-                      <p className="text-xs font-bold text-slate-800 mt-0.5 truncate">{selectedAttendee.dorm_cache?.buildingName || 'None'}</p>
+                    <div className="bg-[#FAFAFA] p-3 rounded-xl border border-[#ECF4EE]">
+                      <p className="text-[10px] text-[#0C0D0D]/40 uppercase font-extrabold">Building</p>
+                      <p className="text-xs font-extrabold text-[#0C0D0D] mt-0.5 truncate">{selectedAttendee.dorm_cache?.buildingName || 'None'}</p>
                     </div>
-                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                      <p className="text-[10px] text-slate-400 uppercase font-semibold">Floor</p>
-                      <p className="text-xs font-bold text-slate-800 mt-0.5">{selectedAttendee.dorm_cache?.floor || 'None'}</p>
+                    <div className="bg-[#FAFAFA] p-3 rounded-xl border border-[#ECF4EE]">
+                      <p className="text-[10px] text-[#0C0D0D]/40 uppercase font-extrabold">Floor</p>
+                      <p className="text-xs font-extrabold text-[#0C0D0D] mt-0.5">{selectedAttendee.dorm_cache?.floor || 'None'}</p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Actions Footer */}
-              <div className="flex items-center gap-3 pt-4 border-t border-slate-100">
+              {/* Modal Actions */}
+              <div className="flex items-center gap-3 pt-4 border-t border-[#ECF4EE]">
                 {!selectedAttendee.arrived && (
-                  <Button
-                    variant="primary"
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-10 px-4 text-xs font-semibold shadow-xs"
+                  <button
+                    className="inline-flex items-center gap-2 bg-[#ECF4EE] hover:bg-[#ECF4EE]/80 text-[#0C0D0D] font-bold rounded-2xl h-11 px-5 text-xs shadow-sm transition-all active:scale-95"
                     onClick={() => {
                       handleCheckIn(selectedAttendee._id);
                       setViewModalOpen(false);
                     }}
                     disabled={isCheckingIn}
                   >
-                    <UserCheck className="h-4 w-4 mr-1.5" />
+                    <UserCheck className="h-4 w-4" />
                     Check In Attendee
-                  </Button>
+                  </button>
                 )}
-                <Button
-                  variant="danger"
-                  className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/60 rounded-xl h-10 px-4 text-xs font-semibold ml-auto transition-colors"
+                <button
+                  className="inline-flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/60 font-bold rounded-2xl h-11 px-5 text-xs ml-auto transition-all active:scale-95"
                   onClick={() => handleDelete(selectedAttendee._id)}
                   disabled={isDeleting}
                 >
-                  <Trash2 className="h-4 w-4 mr-1.5" />
+                  <Trash2 className="h-4 w-4" />
                   Delete
-                </Button>
+                </button>
               </div>
             </div>
           </div>

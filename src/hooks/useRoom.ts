@@ -16,7 +16,7 @@ export const useRoom = () => {
     stats,
     
     // ==================== ACTIONS ====================
-    fetchRooms,
+    fetchRooms,  // ✅ Make sure this is destructured
     fetchRoom,
     createRoom,
     updateRoom,
@@ -28,7 +28,7 @@ export const useRoom = () => {
 
   // ==================== AUTO-FETCH ON MOUNT ====================
   useEffect(() => {
-    fetchRooms();
+    fetchRooms();  // ✅ This should work if fetchRooms exists in the store
   }, []);
 
   // ==================== FILTER BY BUILDING ====================
@@ -66,14 +66,14 @@ export const useRoom = () => {
     stats,
 
     // ==================== FETCH ACTIONS ====================
-    fetch: fetchRooms,
-    fetchById: fetchRoom,
+    fetchRooms,  // ✅ Expose fetchRooms
+    fetchRoom,
     refetch,
 
     // ==================== CRUD ACTIONS ====================
     create: createRoom,
     update: updateRoom,
-    delete: deleteRoom,
+    deleteRoom: deleteRoom,
 
     // ==================== FILTERS ====================
     filterByBuilding,

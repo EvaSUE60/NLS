@@ -16,14 +16,13 @@ import {
   Phone,
   Building2,
   GraduationCap,
-  Users,
   Loader2,
-  CheckCircle,
   AlertCircle,
   Church,
   MapPin,
   UserCheck,
-  CreditCard
+  CreditCard,
+  ChevronDown
 } from 'lucide-react';
 
 interface FormData {
@@ -50,7 +49,6 @@ const initialFormData: FormData = {
   payment_status: 'pending',
 };
 
-// Regions from your data
 const regions = [
   'Central 1',
   'Central 2',
@@ -67,7 +65,7 @@ const regions = [
 export default function CreateAttendeePage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const { create: createAttendee, isLoading, error, clearError } = useAttendee();
+  const { create: createAttendee, error, clearError } = useAttendee();
 
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
@@ -81,7 +79,7 @@ export default function CreateAttendeePage() {
     }
   }, [authLoading, isAuthenticated, router]);
 
-  // Clear errors when form changes
+  // Clear global error when form data changes
   useEffect(() => {
     if (error) {
       clearError();
@@ -104,7 +102,7 @@ export default function CreateAttendeePage() {
       case 'region':
         return value ? '' : 'Region is required';
       case 'campus':
-        return value.trim() ? '' : 'Campus/University is required';
+        return value.trim() ? '' : 'Campus or university is required';
       default:
         return '';
     }
@@ -115,9 +113,9 @@ export default function CreateAttendeePage() {
     let isValid = true;
 
     (Object.keys(formData) as Array<keyof FormData>).forEach((field) => {
-      const error = validateField(field, formData[field]);
-      if (error) {
-        newErrors[field] = error;
+      const fieldError = validateField(field, formData[field]);
+      if (fieldError) {
+        newErrors[field] = fieldError;
         isValid = false;
       }
     });
@@ -130,25 +128,23 @@ export default function CreateAttendeePage() {
     setFormData(prev => ({ ...prev, [field]: value }));
     setTouched(prev => ({ ...prev, [field]: true }));
 
-    // Clear error for this field
-    const error = validateField(field, value);
     if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: error || undefined }));
+      const fieldError = validateField(field, value);
+      setErrors(prev => ({ ...prev, [field]: fieldError || undefined }));
     }
   };
 
   const handleBlur = (field: keyof FormData) => {
     setTouched(prev => ({ ...prev, [field]: true }));
-    const error = validateField(field, formData[field]);
-    if (error) {
-      setErrors(prev => ({ ...prev, [field]: error }));
+    const fieldError = validateField(field, formData[field]);
+    if (fieldError) {
+      setErrors(prev => ({ ...prev, [field]: fieldError }));
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Mark all fields as touched
     const allTouched: Partial<Record<keyof FormData, boolean>> = {};
     (Object.keys(formData) as Array<keyof FormData>).forEach((field) => {
       allTouched[field] = true;
@@ -156,356 +152,397 @@ export default function CreateAttendeePage() {
     setTouched(allTouched);
 
     if (!validateForm()) {
-      toast.error('Please fix all validation errors');
+      toast.error('Please resolve validation errors before submitting.');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const attendeeData = {
-        ...formData,
-        payment_status: formData.payment_status,
-      };
-
-      const result = await createAttendee(attendeeData);
+      const result = await createAttendee(formData);
 
       if (result) {
         toast.success(`Attendee ${result.first_name} ${result.last_name} created successfully!`);
         router.push('/dashboard/attendees');
       }
-    } catch (error: any) {
-      toast.error(error?.message || 'Failed to create attendee');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to create attendee');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Check if form is valid for submission
   const isFormValid = () => {
     return Object.values(formData).every(val => val.toString().trim() !== '');
   };
 
   if (authLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <Loader2 className="h-12 w-12 text-blue-500 animate-spin mx-auto mb-4" />
-          <p className="text-gray-500">Loading...</p>
+          <Loader2 className="h-8 w-8 text-slate-600 animate-spin mx-auto mb-3" />
+          <p className="text-xs font-medium text-slate-500">Loading details...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="max-w-6xl mx-auto space-y-6 pb-12">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Create New Attendee</h1>
-          <p className="text-sm text-gray-500 mt-1">Add a new attendee to the event</p>
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Create New Attendee</h1>
+          <p className="text-xs text-slate-500 mt-0.5">Register a new participant for the event.</p>
         </div>
         <Button
           variant="secondary"
           size="sm"
           onClick={() => router.back()}
-          className="flex items-center gap-2"
+          className="inline-flex items-center gap-2 border-slate-200 text-slate-700 hover:bg-slate-100/80 text-xs font-medium"
         >
-          <ArrowLeft className="h-4 w-4" />
-          Back
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Back to Attendees
         </Button>
       </div>
 
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* ==================== MAIN FORM ==================== */}
+          {/* Main Form Area */}
           <div className="lg:col-span-2 space-y-6">
+            
             {/* Personal Information */}
-            <Card className="p-6">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="p-2 bg-blue-50 rounded-lg">
-                  <User className="h-5 w-5 text-blue-600" />
+            <Card className="p-6 bg-white border border-slate-200/80 rounded-2xl shadow-xs">
+              <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
+                <div className="p-2 bg-slate-100 rounded-xl text-slate-700">
+                  <User className="h-5 w-5" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-800">Personal Information</h3>
+                <div>
+                  <h2 className="text-base font-semibold text-slate-900">Personal Details</h2>
+                  <p className="text-xs text-slate-500">Basic contact and identity information.</p>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* First Name */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     First Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
-                    placeholder="Enter first name"
+                    placeholder="e.g. Abebe"
                     value={formData.first_name}
                     onChange={(e) => handleChange('first_name', e.target.value)}
                     onBlur={() => handleBlur('first_name')}
-                    className={`w-full px-4 py-2.5 rounded-xl border ${errors.first_name && touched.first_name
-                      ? 'border-red-300 focus:ring-red-500'
-                      : 'border-gray-200 focus:ring-blue-500'
-                      } focus:outline-none focus:ring-2 focus:border-transparent transition`}
+                    className={`w-full px-3.5 py-2.5 text-xs font-medium rounded-xl border ${
+                      errors.first_name && touched.first_name
+                        ? 'border-red-300 focus:ring-red-500/20 focus:border-red-500 bg-red-50/10'
+                        : 'border-slate-200 focus:ring-slate-900/10 focus:border-slate-800 bg-white'
+                    } text-slate-900 placeholder:text-slate-400 focus:outline-hidden transition-all`}
                   />
                   {errors.first_name && touched.first_name && (
-                    <p className="mt-1 text-sm text-red-600">{errors.first_name}</p>
+                    <p className="mt-1 text-[11px] text-red-600 flex items-center gap-1 font-medium">
+                      <AlertCircle className="h-3 w-3" /> {errors.first_name}
+                    </p>
                   )}
                 </div>
 
+                {/* Last Name */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Last Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
-                    placeholder="Enter last name"
+                    placeholder="e.g. Bikila"
                     value={formData.last_name}
                     onChange={(e) => handleChange('last_name', e.target.value)}
                     onBlur={() => handleBlur('last_name')}
-                    className={`w-full px-4 py-2.5 rounded-xl border ${errors.last_name && touched.last_name
-                      ? 'border-red-300 focus:ring-red-500'
-                      : 'border-gray-200 focus:ring-blue-500'
-                      } focus:outline-none focus:ring-2 focus:border-transparent transition`}
+                    className={`w-full px-3.5 py-2.5 text-xs font-medium rounded-xl border ${
+                      errors.last_name && touched.last_name
+                        ? 'border-red-300 focus:ring-red-500/20 focus:border-red-500 bg-red-50/10'
+                        : 'border-slate-200 focus:ring-slate-900/10 focus:border-slate-800 bg-white'
+                    } text-slate-900 placeholder:text-slate-400 focus:outline-hidden transition-all`}
                   />
                   {errors.last_name && touched.last_name && (
-                    <p className="mt-1 text-sm text-red-600">{errors.last_name}</p>
+                    <p className="mt-1 text-[11px] text-red-600 flex items-center gap-1 font-medium">
+                      <AlertCircle className="h-3 w-3" /> {errors.last_name}
+                    </p>
                   )}
                 </div>
 
+                {/* Gender */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Gender <span className="text-red-500">*</span>
                   </label>
-                  <select
-                    value={formData.gender}
-                    onChange={(e) => handleChange('gender', e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition bg-white"
-                  >
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                  </select>
+                  <div className="relative">
+                    <select
+                      value={formData.gender}
+                      onChange={(e) => handleChange('gender', e.target.value)}
+                      className="w-full px-3.5 py-2.5 text-xs font-medium rounded-xl border border-slate-200 focus:ring-slate-900/10 focus:border-slate-800 bg-white text-slate-900 focus:outline-hidden transition-all appearance-none pr-9"
+                    >
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                  </div>
                 </div>
 
+                {/* Email */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Email <span className="text-red-500">*</span>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Email Address <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <input
                       type="email"
-                      placeholder="Enter email address"
+                      placeholder="name@example.com"
                       value={formData.email}
                       onChange={(e) => handleChange('email', e.target.value)}
                       onBlur={() => handleBlur('email')}
-                      className={`w-full pl-10 pr-4 py-2.5 rounded-xl border ${errors.email && touched.email
-                        ? 'border-red-300 focus:ring-red-500'
-                        : 'border-gray-200 focus:ring-blue-500'
-                        } focus:outline-none focus:ring-2 focus:border-transparent transition`}
+                      className={`w-full pl-9 pr-3.5 py-2.5 text-xs font-medium rounded-xl border ${
+                        errors.email && touched.email
+                          ? 'border-red-300 focus:ring-red-500/20 focus:border-red-500 bg-red-50/10'
+                          : 'border-slate-200 focus:ring-slate-900/10 focus:border-slate-800 bg-white'
+                      } text-slate-900 placeholder:text-slate-400 focus:outline-hidden transition-all`}
                     />
                   </div>
                   {errors.email && touched.email && (
-                    <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+                    <p className="mt-1 text-[11px] text-red-600 flex items-center gap-1 font-medium">
+                      <AlertCircle className="h-3 w-3" /> {errors.email}
+                    </p>
                   )}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Phone <span className="text-red-500">*</span>
+                {/* Phone */}
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Phone Number <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <input
-                      type="text"
-                      placeholder="Enter phone number"
+                      type="tel"
+                      placeholder="+251 912 345 678"
                       value={formData.phone}
                       onChange={(e) => handleChange('phone', e.target.value)}
                       onBlur={() => handleBlur('phone')}
-                      className={`w-full pl-10 pr-4 py-2.5 rounded-xl border ${errors.phone && touched.phone
-                        ? 'border-red-300 focus:ring-red-500'
-                        : 'border-gray-200 focus:ring-blue-500'
-                        } focus:outline-none focus:ring-2 focus:border-transparent transition`}
+                      className={`w-full pl-9 pr-3.5 py-2.5 text-xs font-medium rounded-xl border ${
+                        errors.phone && touched.phone
+                          ? 'border-red-300 focus:ring-red-500/20 focus:border-red-500 bg-red-50/10'
+                          : 'border-slate-200 focus:ring-slate-900/10 focus:border-slate-800 bg-white'
+                      } text-slate-900 placeholder:text-slate-400 focus:outline-hidden transition-all`}
                     />
                   </div>
                   {errors.phone && touched.phone && (
-                    <p className="mt-1 text-sm text-red-600">{errors.phone}</p>
+                    <p className="mt-1 text-[11px] text-red-600 flex items-center gap-1 font-medium">
+                      <AlertCircle className="h-3 w-3" /> {errors.phone}
+                    </p>
                   )}
                 </div>
               </div>
             </Card>
 
             {/* Church & Affiliation */}
-            <Card className="p-6">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="p-2 bg-purple-50 rounded-lg">
-                  <Church className="h-5 w-5 text-purple-600" />
+            <Card className="p-6 bg-white border border-slate-200/80 rounded-2xl shadow-xs">
+              <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
+                <div className="p-2 bg-slate-100 rounded-xl text-slate-700">
+                  <Church className="h-5 w-5" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-800">Church & Affiliation</h3>
+                <div>
+                  <h2 className="text-base font-semibold text-slate-900">Affiliation & Location</h2>
+                  <p className="text-xs text-slate-500">Local church and educational affiliation.</p>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* Local Church */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Local Church <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <input
                       type="text"
-                      placeholder="Enter local church name"
+                      placeholder="Church name"
                       value={formData.local_church}
                       onChange={(e) => handleChange('local_church', e.target.value)}
                       onBlur={() => handleBlur('local_church')}
-                      className={`w-full pl-10 pr-4 py-2.5 rounded-xl border ${errors.local_church && touched.local_church
-                        ? 'border-red-300 focus:ring-red-500'
-                        : 'border-gray-200 focus:ring-blue-500'
-                        } focus:outline-none focus:ring-2 focus:border-transparent transition`}
+                      className={`w-full pl-9 pr-3.5 py-2.5 text-xs font-medium rounded-xl border ${
+                        errors.local_church && touched.local_church
+                          ? 'border-red-300 focus:ring-red-500/20 focus:border-red-500 bg-red-50/10'
+                          : 'border-slate-200 focus:ring-slate-900/10 focus:border-slate-800 bg-white'
+                      } text-slate-900 placeholder:text-slate-400 focus:outline-hidden transition-all`}
                     />
                   </div>
                   {errors.local_church && touched.local_church && (
-                    <p className="mt-1 text-sm text-red-600">{errors.local_church}</p>
+                    <p className="mt-1 text-[11px] text-red-600 flex items-center gap-1 font-medium">
+                      <AlertCircle className="h-3 w-3" /> {errors.local_church}
+                    </p>
                   )}
                 </div>
 
+                {/* Region */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Region <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none z-10" />
                     <select
                       value={formData.region}
                       onChange={(e) => handleChange('region', e.target.value)}
                       onBlur={() => handleBlur('region')}
-                      className={`w-full pl-10 pr-4 py-2.5 rounded-xl border ${errors.region && touched.region
-                        ? 'border-red-300 focus:ring-red-500'
-                        : 'border-gray-200 focus:ring-blue-500'
-                        } focus:outline-none focus:ring-2 focus:border-transparent transition bg-white appearance-none`}
+                      className={`w-full pl-9 pr-9 py-2.5 text-xs font-medium rounded-xl border ${
+                        errors.region && touched.region
+                          ? 'border-red-300 focus:ring-red-500/20 focus:border-red-500 bg-red-50/10'
+                          : 'border-slate-200 focus:ring-slate-900/10 focus:border-slate-800 bg-white'
+                      } text-slate-900 focus:outline-hidden transition-all appearance-none`}
                     >
                       <option value="">Select region</option>
                       {regions.map((region) => (
                         <option key={region} value={region}>{region}</option>
                       ))}
                     </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                   </div>
                   {errors.region && touched.region && (
-                    <p className="mt-1 text-sm text-red-600">{errors.region}</p>
+                    <p className="mt-1 text-[11px] text-red-600 flex items-center gap-1 font-medium">
+                      <AlertCircle className="h-3 w-3" /> {errors.region}
+                    </p>
                   )}
                 </div>
 
+                {/* Campus / University */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Campus / University <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    <GraduationCap className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <GraduationCap className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <input
                       type="text"
-                      placeholder="Enter campus or university name"
+                      placeholder="e.g. Addis Ababa University"
                       value={formData.campus}
                       onChange={(e) => handleChange('campus', e.target.value)}
                       onBlur={() => handleBlur('campus')}
-                      className={`w-full pl-10 pr-4 py-2.5 rounded-xl border ${errors.campus && touched.campus
-                        ? 'border-red-300 focus:ring-red-500'
-                        : 'border-gray-200 focus:ring-blue-500'
-                        } focus:outline-none focus:ring-2 focus:border-transparent transition`}
+                      className={`w-full pl-9 pr-3.5 py-2.5 text-xs font-medium rounded-xl border ${
+                        errors.campus && touched.campus
+                          ? 'border-red-300 focus:ring-red-500/20 focus:border-red-500 bg-red-50/10'
+                          : 'border-slate-200 focus:ring-slate-900/10 focus:border-slate-800 bg-white'
+                      } text-slate-900 placeholder:text-slate-400 focus:outline-hidden transition-all`}
                     />
                   </div>
                   {errors.campus && touched.campus && (
-                    <p className="mt-1 text-sm text-red-600">{errors.campus}</p>
+                    <p className="mt-1 text-[11px] text-red-600 flex items-center gap-1 font-medium">
+                      <AlertCircle className="h-3 w-3" /> {errors.campus}
+                    </p>
                   )}
                 </div>
               </div>
             </Card>
           </div>
 
-          {/* ==================== SIDEBAR ==================== */}
+          {/* Sidebar Area */}
           <div className="lg:col-span-1 space-y-6">
-            {/* Payment Status */}
-            <Card className="p-6">
+            
+            {/* Payment Status Card */}
+            <Card className="p-6 bg-white border border-slate-200/80 rounded-2xl shadow-xs">
               <div className="flex items-center gap-3 mb-5">
-                <div className="p-2 bg-green-50 rounded-lg">
-                  <CreditCard className="h-5 w-5 text-green-600" />
+                <div className="p-2 bg-slate-100 rounded-xl text-slate-700">
+                  <CreditCard className="h-5 w-5" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-800">Payment</h3>
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900">Payment Status</h3>
+                  <p className="text-xs text-slate-500">Initial payment record.</p>
+                </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Payment Status
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Status
                 </label>
-                <select
-                  value={formData.payment_status}
-                  onChange={(e) => handleChange('payment_status', e.target.value as any)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition bg-white"
-                >
-                  <option value="pending">Pending</option>
-                  <option value="partial">Partial</option>
-                  <option value="completed">Completed</option>
-                </select>
+                <div className="relative">
+                  <select
+                    value={formData.payment_status}
+                    onChange={(e) => handleChange('payment_status', e.target.value as any)}
+                    className="w-full px-3.5 py-2.5 text-xs font-medium rounded-xl border border-slate-200 focus:ring-slate-900/10 focus:border-slate-800 bg-white text-slate-900 focus:outline-hidden transition-all appearance-none pr-9"
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="partial">Partial</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                </div>
               </div>
 
-              <div className="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-200">
-                <p className="text-xs text-amber-700">
-                  <AlertCircle className="h-3 w-3 inline mr-1" />
-                  Payment status can be updated later
+              <div className="mt-4 p-3 bg-amber-50/80 rounded-xl border border-amber-200/60">
+                <p className="text-[11px] text-amber-800 font-medium flex items-center gap-1.5">
+                  <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                  Payment records can be modified later from the main list.
                 </p>
               </div>
             </Card>
 
-            {/* Summary */}
-            <Card className="p-6 bg-gray-50">
-              <h4 className="text-sm font-semibold text-gray-700 mb-4">
-                Registration Summary
+            {/* Live Registration Summary */}
+            <Card className="p-5 bg-slate-50/70 border border-slate-200/80 rounded-2xl">
+              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-3.5">
+                Registration Overview
               </h4>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Name</span>
-                  <span className="font-medium text-gray-800">
+              <div className="space-y-2.5 text-xs">
+                <div className="flex justify-between items-center py-1 border-b border-slate-200/50">
+                  <span className="text-slate-500">Name</span>
+                  <span className="font-semibold text-slate-900 truncate max-w-[140px]">
                     {formData.first_name || formData.last_name
                       ? `${formData.first_name} ${formData.last_name}`.trim()
                       : '—'}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Gender</span>
-                  <span className="font-medium text-gray-800">
-                    {formData.gender || '—'}
+                <div className="flex justify-between items-center py-1 border-b border-slate-200/50">
+                  <span className="text-slate-500">Gender</span>
+                  <span className="font-semibold text-slate-900">
+                    {formData.gender}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Region</span>
-                  <span className="font-medium text-gray-800">
+                <div className="flex justify-between items-center py-1 border-b border-slate-200/50">
+                  <span className="text-slate-500">Region</span>
+                  <span className="font-semibold text-slate-900 truncate max-w-[140px]">
                     {formData.region || '—'}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Church</span>
-                  <span className="font-medium text-gray-800 truncate max-w-[120px]">
+                <div className="flex justify-between items-center py-1 border-b border-slate-200/50">
+                  <span className="text-slate-500">Church</span>
+                  <span className="font-semibold text-slate-900 truncate max-w-[140px]">
                     {formData.local_church || '—'}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Payment</span>
+                <div className="flex justify-between items-center py-1">
+                  <span className="text-slate-500">Payment</span>
                   <Badge variant={
                     formData.payment_status === 'completed' ? 'success' :
-                      formData.payment_status === 'partial' ? 'warning' : 'default'
-                  }>
+                    formData.payment_status === 'partial' ? 'warning' : 'default'
+                  } className="capitalize font-semibold text-[10px]">
                     {formData.payment_status}
                   </Badge>
                 </div>
               </div>
             </Card>
 
-            {/* Actions */}
-            <div className="space-y-3">
+            {/* Submission Actions */}
+            <div className="space-y-2.5">
               <Button
                 type="submit"
                 variant="primary"
-                className="w-full flex items-center justify-center gap-2"
+                className="w-full py-2.5 text-xs font-semibold rounded-xl bg-slate-900 hover:bg-slate-800 text-white shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50"
                 disabled={isSubmitting || !isFormValid()}
               >
                 {isSubmitting ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Creating...
+                    Creating Record...
                   </>
                 ) : (
                   <>
@@ -514,16 +551,18 @@ export default function CreateAttendeePage() {
                   </>
                 )}
               </Button>
+
               <Button
                 type="button"
                 variant="secondary"
-                className="w-full"
+                className="w-full py-2.5 text-xs font-semibold rounded-xl border border-slate-200 hover:bg-slate-100/80 text-slate-700 transition-all"
                 onClick={() => router.back()}
                 disabled={isSubmitting}
               >
                 Cancel
               </Button>
             </div>
+
           </div>
         </div>
       </form>

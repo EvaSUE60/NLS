@@ -4,6 +4,8 @@ import mongoose, { Schema, Document } from "mongoose";
 export interface IRoom extends Document {
   room_id: string;
   building_id: mongoose.Types.ObjectId;
+  building_name: string; // ✅ Add this
+  building_type: "men" | "women"; // ✅ Add this
   room_number: string;
   floor: number;
   floor_name: string;
@@ -35,6 +37,18 @@ const RoomSchema = new Schema<IRoom>(
       ref: "Building",
       required: true,
     },
+    building_name: { // ✅ Add this field
+      type: String,
+      required: true,
+      trim: true,
+      default: 'Unknown',
+    },
+    building_type: { // ✅ Add this field
+      type: String,
+      enum: ["men", "women"],
+      required: true,
+      default: 'men',
+    },
     room_number: {
       type: String,
       required: true,
@@ -54,7 +68,7 @@ const RoomSchema = new Schema<IRoom>(
       type: Number,
       required: true,
       min: 2,
-      max: 4,
+      max: 25,
       default: 4,
     },
     occupants: [
@@ -100,6 +114,7 @@ RoomSchema.index({ building_id: 1 });
 RoomSchema.index({ floor: 1 });
 RoomSchema.index({ is_full: 1 });
 RoomSchema.index({ is_active: 1 });
+RoomSchema.index({ building_type: 1 }); // ✅ Add index for building_type
 
 // Virtuals
 RoomSchema.virtual("available_slots").get(function() {
@@ -110,7 +125,7 @@ RoomSchema.virtual("occupant_count").get(function() {
   return this.current_occupancy || this.occupants.length;
 });
 
-// ✅ FIXED: Pre-save middleware with async/await (Mongoose 7+)
+// ✅ Pre-save middleware
 RoomSchema.pre("save", async function() {
   this.current_occupancy = this.occupants.length;
   this.is_full = this.occupants.length >= this.capacity;
@@ -131,8 +146,7 @@ RoomSchema.pre("save", async function() {
 // JSON Transform
 RoomSchema.set("toJSON", {
   virtuals: true,
-  transform: function(_doc, ret) {
-    // @ts-ignore
+  transform: function(_doc, ret: any) {
     delete ret.__v;
     return ret;
   },
@@ -141,7 +155,6 @@ RoomSchema.set("toJSON", {
 RoomSchema.set("toObject", {
   virtuals: true,
 });
-
 
 const Room = mongoose.models.Room || mongoose.model<IRoom>("Room", RoomSchema);
 

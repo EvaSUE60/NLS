@@ -76,12 +76,14 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] rounded-2xl bg-white/60 border border-slate-200/80 backdrop-blur-md">
+      <div className="flex flex-col items-center justify-center min-h-[400px] rounded-3xl bg-[#ECF4EE]/40 border border-[#ECF4EE] text-[#0C0D0D]">
         <div className="relative flex items-center justify-center">
-          <div className="absolute inset-0 rounded-full bg-slate-900/5 blur-xl animate-pulse" />
-          <Loader2 className="h-10 w-10 text-slate-900 animate-spin relative z-10" />
+          <div className="absolute inset-0 rounded-full bg-[#0C0D0D]/5 blur-xl animate-pulse" />
+          <Loader2 className="h-10 w-10 text-[#0C0D0D] animate-spin relative z-10" />
         </div>
-        <p className="mt-4 text-sm font-medium text-slate-600 tracking-wide">Loading Dashboard Metrics...</p>
+        <p className="mt-4 text-xs font-bold text-[#0C0D0D]/60 tracking-wider uppercase">
+          Loading Dashboard Metrics...
+        </p>
       </div>
     );
   }
@@ -89,42 +91,42 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8 max-w-[1600px] mx-auto p-2 sm:p-4">
       {/* ==================== WELCOME BANNER ==================== */}
-      <div className="relative overflow-hidden rounded-3xl bg-sky-950 border border-sky-800 p-6 sm:p-8 shadow-sm">
-        {/* Subtle Ambient Background Gradients */}
-        <div className="absolute -top-24 -right-24 w-96 h-96 bg-slate-800/40 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-red-900/15 rounded-full blur-3xl pointer-events-none" />
+      <div className="relative overflow-hidden rounded-3xl bg-[#ECF4EE] border border-[#d2e5d7] p-6 sm:p-8 text-[#0C0D0D] shadow-sm">
+        {/* Subtle Ambient Mint & White Glows */}
+        <div className="absolute -top-24 -right-24 w-96 h-96 bg-white/60 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-[#0C0D0D]/5 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase bg-slate-900 text-slate-300 border border-slate-800">
-                <Sparkles className="w-3 h-3 text-red-500" /> Executive Overview
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase bg-[#0C0D0D] text-[#ECF4EE] shadow-xs">
+                <Sparkles className="w-3 h-3 text-[#ECF4EE]" /> Executive Overview
               </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#0C0D0D]">
               Welcome back, {user?.name?.split(' ')[0] || 'Administrator'}
             </h1>
-            <p className="text-sm text-slate-400 max-w-xl font-normal leading-relaxed">
+            <p className="text-xs sm:text-sm text-[#0C0D0D]/70 max-w-xl font-medium leading-relaxed">
               Real-time synchronization for your event directory, room allocation, and seminar participation.
             </p>
           </div>
 
           {/* Quick Metrics Badges */}
           <div className="flex flex-wrap items-center gap-2.5 pt-2 lg:pt-0">
-            <div className="flex items-center gap-2 bg-slate-900/90 border border-slate-800/90 px-3.5 py-2 rounded-xl text-xs">
-              <Users className="w-3.5 h-3.5 text-slate-400" />
-              <span className="text-slate-400">Directory:</span>
-              <span className="font-bold text-white">{totalAttendees}</span>
+            <div className="flex items-center gap-2 bg-white/80 border border-[#0C0D0D]/10 px-3.5 py-2 rounded-2xl text-xs font-medium shadow-2xs">
+              <Users className="w-3.5 h-3.5 text-[#0C0D0D]/50" />
+              <span className="text-[#0C0D0D]/60">Directory:</span>
+              <span className="font-bold text-[#0C0D0D]">{totalAttendees}</span>
             </div>
-            <div className="flex items-center gap-2 bg-slate-900/90 border border-slate-800/90 px-3.5 py-2 rounded-xl text-xs">
-              <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-slate-400">Arrived:</span>
-              <span className="font-bold text-emerald-400">{checkedIn}</span>
+            <div className="flex items-center gap-2 bg-white/80 border border-emerald-500/30 px-3.5 py-2 rounded-2xl text-xs font-medium shadow-2xs">
+              <CheckSquare className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="text-[#0C0D0D]/60">Arrived:</span>
+              <span className="font-bold text-emerald-600">{checkedIn}</span>
             </div>
-            <div className="flex items-center gap-2 bg-slate-900/90 border border-slate-800/90 px-3.5 py-2 rounded-xl text-xs">
-              <Building2 className="w-3.5 h-3.5 text-slate-400" />
-              <span className="text-slate-400">Rooms:</span>
-              <span className="font-bold text-white">{totalRooms}</span>
+            <div className="flex items-center gap-2 bg-white/80 border border-[#0C0D0D]/10 px-3.5 py-2 rounded-2xl text-xs font-medium shadow-2xs">
+              <Building2 className="w-3.5 h-3.5 text-[#0C0D0D]/50" />
+              <span className="text-[#0C0D0D]/60">Rooms:</span>
+              <span className="font-bold text-[#0C0D0D]">{totalRooms}</span>
             </div>
           </div>
         </div>
@@ -133,18 +135,18 @@ export default function DashboardPage() {
       {/* ==================== STATS CARDS ==================== */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
         {/* Total Attendees */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs hover:shadow-md transition-all duration-200">
+        <div className="bg-white rounded-3xl border border-[#ECF4EE] p-6 text-[#0C0D0D] shadow-xs hover:border-[#0C0D0D]/20 hover:shadow-md transition-all duration-200">
           <div className="flex items-start justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Attendees</span>
-            <div className="p-2.5 rounded-xl bg-slate-900 text-white shadow-xs">
+            <span className="text-[11px] font-black uppercase tracking-widest text-[#0C0D0D]/40">Total Attendees</span>
+            <div className="p-2.5 rounded-2xl bg-[#0C0D0D] text-[#ECF4EE] shadow-sm">
               <Users className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-4">
-            <div className="text-3xl font-bold text-slate-900 tracking-tight">{totalAttendees}</div>
-            <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-              <span className="inline-flex items-center text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">
-                <TrendingUp className="h-3 w-3 mr-0.5 text-emerald-600" /> +12%
+            <div className="text-3xl font-black text-[#0C0D0D] tracking-tight">{totalAttendees}</div>
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-[#0C0D0D]/60 font-medium">
+              <span className="inline-flex items-center text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
+                <TrendingUp className="h-3 w-3 mr-1 text-emerald-600" /> +12%
               </span>
               <span>vs previous cycle</span>
             </div>
@@ -152,17 +154,17 @@ export default function DashboardPage() {
         </div>
 
         {/* Checked In */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs hover:shadow-md transition-all duration-200">
+        <div className="bg-white rounded-3xl border border-[#ECF4EE] p-6 text-[#0C0D0D] shadow-xs hover:border-[#0C0D0D]/20 hover:shadow-md transition-all duration-200">
           <div className="flex items-start justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Check-In Status</span>
-            <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100">
+            <span className="text-[11px] font-black uppercase tracking-widest text-[#0C0D0D]/40">Check-In Status</span>
+            <div className="p-2.5 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200">
               <CheckSquare className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-4">
-            <div className="text-3xl font-bold text-emerald-600 tracking-tight">{checkedIn}</div>
-            <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-              <span className="inline-flex items-center text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">
+            <div className="text-3xl font-black text-emerald-600 tracking-tight">{checkedIn}</div>
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-[#0C0D0D]/60 font-medium">
+              <span className="inline-flex items-center text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
                 {totalAttendees > 0 ? Math.round((checkedIn / totalAttendees) * 100) : 0}%
               </span>
               <span>attendance rate</span>
@@ -171,34 +173,34 @@ export default function DashboardPage() {
         </div>
 
         {/* Total Groups */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs hover:shadow-md transition-all duration-200">
+        <div className="bg-white rounded-3xl border border-[#ECF4EE] p-6 text-[#0C0D0D] shadow-xs hover:border-[#0C0D0D]/20 hover:shadow-md transition-all duration-200">
           <div className="flex items-start justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Active Groups</span>
-            <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100">
+            <span className="text-[11px] font-black uppercase tracking-widest text-[#0C0D0D]/40">Active Groups</span>
+            <div className="p-2.5 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100">
               <Group className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-4">
-            <div className="text-3xl font-bold text-slate-900 tracking-tight">{totalGroups}</div>
-            <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-              <span className="text-slate-700 font-semibold">~{Math.floor(totalAttendees / (totalGroups || 1))}</span>
+            <div className="text-3xl font-black text-[#0C0D0D] tracking-tight">{totalGroups}</div>
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-[#0C0D0D]/60 font-medium">
+              <span className="text-[#0C0D0D] font-bold">~{Math.floor(totalAttendees / (totalGroups || 1))}</span>
               <span>attendees per group</span>
             </div>
           </div>
         </div>
 
         {/* Total Seminars */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs hover:shadow-md transition-all duration-200">
+        <div className="bg-white rounded-3xl border border-[#ECF4EE] p-6 text-[#0C0D0D] shadow-xs hover:border-[#0C0D0D]/20 hover:shadow-md transition-all duration-200">
           <div className="flex items-start justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Seminars</span>
-            <div className="p-2.5 rounded-xl bg-amber-50 text-amber-600 border border-amber-100">
+            <span className="text-[11px] font-black uppercase tracking-widest text-[#0C0D0D]/40">Seminars</span>
+            <div className="p-2.5 rounded-2xl bg-amber-50 text-amber-600 border border-amber-100">
               <BookOpen className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-4">
-            <div className="text-3xl font-bold text-slate-900 tracking-tight">{totalSeminars}</div>
-            <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-              <span className="text-slate-700 font-semibold">{seminarStats?.by_day?.length || 0}</span>
+            <div className="text-3xl font-black text-[#0C0D0D] tracking-tight">{totalSeminars}</div>
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-[#0C0D0D]/60 font-medium">
+              <span className="text-[#0C0D0D] font-bold">{seminarStats?.by_day?.length || 0}</span>
               <span>active event days</span>
             </div>
           </div>
@@ -207,18 +209,18 @@ export default function DashboardPage() {
 
       {/* ==================== CENTERED STATUS DISTRIBUTION ==================== */}
       <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-xs flex flex-col justify-between text-center">
+        <div className="bg-white rounded-3xl border border-[#ECF4EE] p-6 sm:p-8 text-[#0C0D0D] shadow-xs flex flex-col justify-between text-center">
           <div>
             {/* Header Centered & Bolder */}
-            <div className="flex flex-col items-center justify-center mb-4 gap-2">
+            <div className="flex flex-col items-center justify-center mb-6 gap-1.5">
               <div className="flex items-center gap-2">
-                <PieIcon className="w-5 h-5 text-slate-700" />
-                <h3 className="text-lg font-extrabold text-slate-900 tracking-tight">
+                <PieIcon className="w-5 h-5 text-[#0C0D0D]" />
+                <h3 className="text-lg font-black text-[#0C0D0D] tracking-tight">
                   Status Distribution
                 </h3>
               </div>
-              <p className="text-xs text-slate-500 font-medium">
-                Check-in arrival breakdown • <span className="font-semibold text-slate-700">{totalAttendees} Total Attendees</span>
+              <p className="text-xs text-[#0C0D0D]/50 font-medium">
+                Check-in arrival breakdown • <span className="font-bold text-[#0C0D0D]">{totalAttendees} Total Attendees</span>
               </p>
             </div>
 
@@ -242,11 +244,12 @@ export default function DashboardPage() {
                       </Pie>
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: '#0f172a',
-                          borderRadius: '12px',
+                          backgroundColor: '#0C0D0D',
+                          borderRadius: '16px',
                           border: 'none',
                           color: '#fff',
                           fontSize: '12px',
+                          fontWeight: 600,
                           boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
                         }}
                         formatter={(value: any, name: any) => [`${value} Attendees`, name]}
@@ -256,9 +259,10 @@ export default function DashboardPage() {
                         iconSize={9}
                         align="center"
                         wrapperStyle={{
-                          fontSize: '13px',
+                          fontSize: '12px',
                           fontWeight: 600,
-                          paddingTop: '12px',
+                          paddingTop: '16px',
+                          color: '#0C0D0D',
                         }}
                       />
                     </PieChart>
@@ -266,22 +270,22 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Quick Summary Strip */}
-                <div className="grid grid-cols-2 gap-4 mt-6 pt-5 border-t border-slate-100">
-                  <div className="p-3.5 bg-emerald-50/70 rounded-xl border border-emerald-100/80 text-center">
+                <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-[#ECF4EE]">
+                  <div className="p-4 bg-emerald-50/80 rounded-2xl border border-emerald-100 text-center">
                     <p className="text-2xl font-black text-emerald-600">{checkedIn}</p>
-                    <p className="text-xs font-bold text-emerald-800 uppercase tracking-wider mt-0.5">Checked In</p>
+                    <p className="text-[10px] font-black text-emerald-800 uppercase tracking-widest mt-1">Checked In</p>
                   </div>
-                  <div className="p-3.5 bg-amber-50/70 rounded-xl border border-amber-100/80 text-center">
+                  <div className="p-4 bg-amber-50/80 rounded-2xl border border-amber-100 text-center">
                     <p className="text-2xl font-black text-amber-600">{notCheckedIn}</p>
-                    <p className="text-xs font-bold text-amber-800 uppercase tracking-wider mt-0.5">Pending Arrival</p>
+                    <p className="text-[10px] font-black text-amber-800 uppercase tracking-widest mt-1">Pending Arrival</p>
                   </div>
                 </div>
               </>
             ) : (
-              <div className="flex flex-col items-center justify-center h-[260px] text-slate-400">
-                <Activity className="w-10 h-10 mb-2 text-slate-300" />
-                <p className="text-xs font-semibold text-slate-600">No attendees found</p>
-                <p className="text-[11px] text-slate-400">Data will update upon registration sync</p>
+              <div className="flex flex-col items-center justify-center h-[260px] text-[#0C0D0D]/30">
+                <Activity className="w-10 h-10 mb-2 text-[#0C0D0D]/20" />
+                <p className="text-xs font-semibold text-[#0C0D0D]/60">No attendees found</p>
+                <p className="text-[11px] text-[#0C0D0D]/30">Data will update upon registration sync</p>
               </div>
             )}
           </div>

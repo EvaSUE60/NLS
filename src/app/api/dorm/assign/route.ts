@@ -179,9 +179,9 @@ export async function POST(request: NextRequest) {
                   }
                 }
 
-                // ✅ Create assignment
+                // ✅ FIXED: Create assignment with await
                 const assignment = await DormAssignment.create({
-                  assignment_id: generateAssignmentId(),
+                  assignment_id: await generateAssignmentId(),
                   attendee_id: attendee._id,
                   room_id: currentRoom._id,
                   building_id: currentRoom.building_id,
@@ -194,7 +194,7 @@ export async function POST(request: NextRequest) {
 
                 console.log(`✅ Created assignment: ${assignment.assignment_id} for ${attendee.first_name} ${attendee.last_name}`);
 
-                // ✅ Update attendee with dorm_assignment_id - USING findByIdAndUpdate for reliability
+                // ✅ Update attendee with dorm_assignment_id
                 const updatedAttendee = await Attendee.findByIdAndUpdate(
                   attendee._id,
                   {
@@ -209,7 +209,7 @@ export async function POST(request: NextRequest) {
                       },
                     },
                   },
-                  { new: true }
+                  { new: true, runValidators: true }
                 );
 
                 if (updatedAttendee) {
