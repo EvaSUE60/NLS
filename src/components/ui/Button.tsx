@@ -19,7 +19,7 @@ export function Button({
   ...props
 }: ButtonProps) {
   const variants = {
-    primary: "bg-[#135574] text-white hover:bg-[#0f4965]",
+    primary: "bg-red-600 text-white hover:bg-red-700",
     secondary:
       "border border-white/20 bg-white/5 text-white hover:bg-white/10",
     danger: "bg-[#ed2529] text-white hover:bg-[#ff3438]",
