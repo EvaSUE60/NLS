@@ -5,7 +5,7 @@ import Attendee from "@/src/models/Attendee";
 import { requireRole } from "@/src/lib/auth/middleware";
 import { generateAttendeeId } from "@/src/lib/generateId";
 
-// GET - List all attendees (with filters)
+
 export async function GET(request: NextRequest) {
   try {
     const authError = await requireRole(["super_admin", "admin", "staff"])(request);
@@ -48,12 +48,23 @@ export async function GET(request: NextRequest) {
     const safePage = Math.min(Math.max(page, 1), totalPages);
     const skip = (safePage - 1) * limit;
 
+    // ✅ Get attendees with pagination
     const attendees = await Attendee.find(query)
       .sort({ created_at: -1 })
       .skip(skip)
       .limit(limit)
       .lean();
 
+    // ✅ Get total male and female counts (across ALL attendees, not just filtered)
+    const totalMale = await Attendee.countDocuments({ gender: "Male" });
+    const totalFemale = await Attendee.countDocuments({ gender: "Female" });
+
+    // ✅ Get filtered male and female counts (respecting the query filters)
+    const filteredQuery = { ...query };
+    const filteredMale = await Attendee.countDocuments({ ...filteredQuery, gender: "Male" });
+    const filteredFemale = await Attendee.countDocuments({ ...filteredQuery, gender: "Female" });
+
+    // Get distinct regions
     const regions = await Attendee.distinct('region');
 
     return NextResponse.json({
@@ -68,6 +79,19 @@ export async function GET(request: NextRequest) {
         },
         filters: {
           regions: regions.sort(),
+        },
+        // ✅ Add gender stats
+        stats: {
+          total: {
+            male: totalMale,
+            female: totalFemale,
+            total: totalMale + totalFemale,
+          },
+          filtered: {
+            male: filteredMale,
+            female: filteredFemale,
+            total: filteredMale + filteredFemale,
+          },
         },
       },
     });

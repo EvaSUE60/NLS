@@ -42,7 +42,7 @@ const DormAssignmentSchema = new Schema<IDormAssignment>(
       type: Number,
       required: true,
       min: 1,
-      max: 6,
+      max: 30,
     },
     assigned_by: {
       type: Schema.Types.ObjectId,
