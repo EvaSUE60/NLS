@@ -1,12 +1,10 @@
+// src/app/student/page.tsx
 "use client";
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-
-import { Button } from "@/src/components/ui/Button";
-import { Card } from "@/src/components/ui/Card";
-import { Input } from "@/src/components/ui/Input";
+import { ArrowLeft, ArrowRight, Search, Sparkles, Loader2, AlertCircle } from "lucide-react";
 
 export default function StudentLookupPage() {
   const router = useRouter();
@@ -29,8 +27,7 @@ export default function StudentLookupPage() {
     setIsLoading(true);
 
     try {
-      // Later we can validate the ID with your backend here.
-
+      // Validate or directly route to student page
       router.push(`/student/${encodeURIComponent(studentId)}`);
     } finally {
       setIsLoading(false);
@@ -38,106 +35,107 @@ export default function StudentLookupPage() {
   };
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#135574] px-5 text-white">
-      
-      {/* Background effects */}
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#ECF4EE] px-5 py-12 text-[#0C0D0D]">
+      {/* Background ambient lighting */}
       <div className="pointer-events-none absolute inset-0">
-        {/* Blue glow */}
-        <div className="absolute left-[10%] top-[10%] h-[400px] w-[400px] rounded-full bg-sky-400/20 blur-[120px]" />
-
-        {/* Red glow */}
-        <div className="absolute bottom-[5%] right-[10%] h-[350px] w-[350px] rounded-full bg-[#ed2529]/15 blur-[120px]" />
-
-        {/* Center glow */}
-        <div className="absolute left-1/2 top-1/2 h-[500px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-300/10 blur-[150px]" />
-
-        {/* Small decorative dots */}
-        <span className="absolute left-[15%] top-[25%] h-1.5 w-1.5 animate-pulse rounded-full bg-[#ff5b68]" />
-
-        <span className="absolute right-[18%] top-[20%] h-1 w-1 animate-pulse rounded-full bg-sky-300" />
-
-        <span className="absolute bottom-[20%] left-[20%] h-1 w-1 rounded-full bg-sky-300" />
-
-        <span className="absolute bottom-[25%] right-[20%] h-1.5 w-1.5 rounded-full bg-[#ff5b68]" />
+        <div className="absolute left-[10%] top-[10%] h-[400px] w-[400px] rounded-full bg-white/70 blur-3xl" />
+        <div className="absolute bottom-[10%] right-[10%] h-[350px] w-[350px] rounded-full bg-[#0C0D0D]/5 blur-3xl" />
+        <div className="absolute left-1/2 top-1/2 h-[500px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#d2e5d7]/50 blur-3xl" />
       </div>
 
-      {/* Main content */}
+      {/* Main Container */}
       <div className="relative z-10 w-full max-w-md">
-        
-        {/* Back */}
+        {/* Back Link */}
         <Link
           href="/"
-          className="mb-7 inline-flex items-center gap-2 text-sm text-sky-200 transition duration-200 hover:-translate-x-1 hover:text-white"
+          className="mb-6 inline-flex items-center gap-2 text-xs font-bold text-[#0C0D0D]/70 transition-all duration-200 hover:-translate-x-1 hover:text-[#0C0D0D]"
         >
-          <span>←</span>
+          <ArrowLeft className="h-4 w-4" />
           <span>Back to Home</span>
         </Link>
 
-        {/* Glass Card */}
-        <Card className="border-white/15 bg-white/10 shadow-2xl backdrop-blur-xl">
-          
+        {/* Card Container */}
+        <div className="rounded-3xl border border-[#d2e5d7] bg-white/90 p-8 shadow-sm backdrop-blur-xl">
           {/* Header */}
-          <div className="text-center">
-            <p className="mb-3 text-xs font-bold tracking-[0.3em] text-[#ff5b68]">
-              NLS 2026
-            </p>
+          <div className="text-center space-y-3">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase bg-[#0C0D0D] text-[#ECF4EE]">
+              <Sparkles className="w-3 h-3 text-[#ECF4EE]" /> NLS 2026
+            </span>
 
-            <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#0C0D0D]">
               Student Lookup
             </h1>
 
-            <p className="mt-3 text-sm leading-6 text-sky-100/70">
-              Enter your NLS ID to view your information
+            <p className="text-xs text-[#0C0D0D]/60 font-medium">
+              Enter your NLS ID to view your registration details
             </p>
           </div>
 
           {/* Form */}
-          <form
-            onSubmit={handleSubmit}
-            className="mt-8"
-          >
-            <Input
-              id="nlsId"
-              name="nlsId"
-              label="NLS ID"
-              type="text"
-              placeholder="NLS-2026-001"
-              value={nlsId}
-              onChange={(e) => {
-                setNlsId(e.target.value);
-                setError("");
-              }}
-              error={error}
-              autoComplete="off"
-            />
+          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+            <div className="space-y-2">
+              <label htmlFor="nlsId" className="block text-xs font-bold uppercase tracking-wider text-[#0C0D0D]">
+                NLS ID <span className="text-rose-500">*</span>
+              </label>
+              
+              <div className="relative">
+                <input
+                  id="nlsId"
+                  name="nlsId"
+                  type="text"
+                  placeholder="NLS-2026-001"
+                  value={nlsId}
+                  onChange={(e) => {
+                    setNlsId(e.target.value);
+                    setError("");
+                  }}
+                  autoComplete="off"
+                  className={`w-full px-4 py-3 pl-10 rounded-2xl border ${
+                    error
+                      ? "border-rose-300 bg-rose-50/20 focus:ring-rose-500"
+                      : "border-[#ECF4EE] bg-[#ECF4EE]/30 focus:border-[#0C0D0D]"
+                  } text-xs font-semibold text-[#0C0D0D] focus:outline-none transition-all placeholder:text-[#0C0D0D]/40`}
+                />
+                <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-[#0C0D0D]/40" />
+              </div>
 
-            <Button
+              {error && (
+                <div className="flex items-center gap-1.5 mt-1 text-xs font-semibold text-rose-600">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+            </div>
+
+            <button
               type="submit"
-              variant="danger"
-              size="lg"
-              isLoading={isLoading}
-              disabled={!nlsId.trim()}
-              className="mt-4 w-full bg-[#ed2529] text-white shadow-lg shadow-red-950/20 hover:bg-[#ff3438]"
+              disabled={isLoading || !nlsId.trim()}
+              className="w-full flex items-center justify-center gap-2 bg-[#0C0D0D] text-[#ECF4EE] hover:bg-[#0C0D0D]/90 disabled:opacity-50 rounded-2xl py-3 text-xs font-bold transition-all shadow-xs cursor-pointer"
             >
-              <span>View My Information</span>
-
-              <span className="ml-2">
-                →
-              </span>
-            </Button>
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin text-[#ECF4EE]" />
+                  <span>Searching...</span>
+                </>
+              ) : (
+                <>
+                  <span>View My Information</span>
+                  <ArrowRight className="h-4 w-4 text-[#ECF4EE]" />
+                </>
+              )}
+            </button>
           </form>
 
-          {/* Bottom information */}
-          <div className="mt-7 border-t border-white/10 pt-6 text-center">
-            <p className="text-xs text-sky-200/80">
-              Example: NLS-2026-001
+          {/* Bottom Information */}
+          <div className="mt-8 border-t border-[#ECF4EE] pt-6 text-center space-y-1">
+            <p className="text-xs font-bold text-[#0C0D0D]/80">
+              Example: <span className="font-mono text-[#0C0D0D]">NLS-2026-001</span>
             </p>
-
-            <p className="mt-2 text-xs text-sky-200/60">
-              Your NLS ID is on your registration confirmation
+            <p className="text-[11px] text-[#0C0D0D]/50 font-medium">
+              Your NLS ID can be found on your registration confirmation email or badge.
             </p>
           </div>
-        </Card>
+        </div>
       </div>
     </main>
   );

@@ -22,31 +22,30 @@ function toRomanNumeral(num: number): string {
   const romanNumerals: { [key: number]: string } = {
     1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V',
     6: 'VI', 7: 'VII', 8: 'VIII', 9: 'IX', 10: 'X',
+    11: 'XI', 12: 'XII', 13: 'XIII', 14: 'XIV', 15: 'XV',
+    16: 'XVI', 17: 'XVII', 18: 'XVIII', 19: 'XIX', 20: 'XX',
   };
   return romanNumerals[num] || num.toString();
-}
-
-function getFloorPrefix(floor: number): string {
-  if (floor === 0) return "G";
-  return toRomanNumeral(floor);
 }
 
 // Helper: Get floor name
 function getFloorName(floor: number): string {
   const floorNames: { [key: number]: string } = {
-    1: 'Ground',
-    2: '1st',
-    3: '2nd',
-    4: '3rd',
-    5: '4th',
-    6: '5th',
+    1: '1st',
+    2: '2nd',
+    3: '3rd',
+    4: '4th',
+    5: '5th',
+    6: '6th',
+    7: '7th',
+    8: '8th',
+    9: '9th',
+    10: '10th',
   };
   return floorNames[floor] || `${floor}th`;
 }
 
 // POST: Create building with rooms
-// src/app/api/buildings/route.ts - Updated POST handler
-// src/app/api/buildings/route.ts - Full fixed POST handler
 export async function POST(request: NextRequest) {
   try {
     const authError = await requireRole(["super_admin", "admin"])(request);
@@ -79,7 +78,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ FIXED: Await generateBuildingId
+    // Create building
     const building = await Building.create({
       building_id: await generateBuildingId(),
       name,
@@ -96,18 +95,19 @@ export async function POST(request: NextRequest) {
 
     console.log(`✅ Building created: ${building.name} (${building.building_id})`);
 
-    // Generate rooms
-    const floorNames = ["Ground", "1st", "2nd", "3rd", "4th", "5th"];
+    // ✅ UPDATED: Generate rooms with Roman numeral floor numbers
     const rooms = [];
     
     for (let floor = 1; floor <= total_floors; floor++) {
-      const floorName = floorNames[floor - 1] || `${floor}th`;
+      const floorName = getFloorName(floor);
+      const romanFloor = toRomanNumeral(floor); // ✅ Convert to Roman numeral
       
       for (let room = 1; room <= rooms_per_floor; room++) {
-        const roomNumber = `${floor}-${String(room).padStart(2, '0')}`;
+        // ✅ Room number format: "I-01", "II-01", "III-01" etc.
+        const roomNumber = `${romanFloor}-${String(room).padStart(2, '0')}`;
         rooms.push({
           room_id: `RM-${building.building_id}-${floor}-${String(room).padStart(2, '0')}`,
-          room_number: roomNumber,
+          room_number: roomNumber, // ✅ Now uses Roman numerals
           building_id: building._id,
           floor: floor,
           floor_name: floorName,

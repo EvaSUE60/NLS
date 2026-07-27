@@ -1,4 +1,4 @@
-// src/app/api/dorm/stats/route.ts - Updated to only include active buildings
+// src/app/api/dorm/stats/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/src/lib/mongodb";
 import Building from "@/src/models/Building";
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
     const occupiedBeds = rooms.reduce((sum, r) => sum + r.current_occupancy, 0);
     const availableBeds = totalBeds - occupiedBeds;
 
-    // Bed occupancy by building type
+    // ✅ FIXED: Bed occupancy by building type (populate from building)
     const bedStatsByType = await Room.aggregate([
       { 
         $match: { 
@@ -84,8 +84,17 @@ export async function GET(request: NextRequest) {
         } 
       },
       {
+        $lookup: {
+          from: 'buildings',
+          localField: 'building_id',
+          foreignField: '_id',
+          as: 'building'
+        }
+      },
+      { $unwind: '$building' },
+      {
         $group: {
-          _id: '$building_type',
+          _id: '$building.type',
           total_beds: { $sum: '$capacity' },
           occupied_beds: { $sum: '$current_occupancy' },
           rooms_count: { $sum: 1 },
@@ -93,28 +102,50 @@ export async function GET(request: NextRequest) {
       },
     ]);
 
+    // ✅ Ensure both men and women types are present
+    const roomTypes = ['men', 'women'];
+    const finalBedStatsByType = roomTypes.map(type => {
+      const found = bedStatsByType.find(r => r._id === type);
+      if (found) return found;
+      return {
+        _id: type,
+        total_beds: 0,
+        occupied_beds: 0,
+        rooms_count: 0
+      };
+    });
+
     // ==================== ASSIGNMENT STATS ====================
     const activeAssignments = await DormAssignment.countDocuments({ status: "active" });
     const cancelledAssignments = await DormAssignment.countDocuments({ status: "cancelled" });
     const changedAssignments = await DormAssignment.countDocuments({ status: "changed" });
     const totalAssignments = await DormAssignment.countDocuments();
 
-    // Assignments by building - only active buildings
+    // ✅ FIXED: Assignments by building (through room)
     const assignmentsByBuilding = await DormAssignment.aggregate([
       { $match: { status: "active" } },
       {
         $lookup: {
-          from: 'buildings',
-          localField: 'building_id',
+          from: 'rooms',
+          localField: 'room_id',
           foreignField: '_id',
-          as: 'building',
-        },
+          as: 'room'
+        }
+      },
+      { $unwind: '$room' },
+      {
+        $lookup: {
+          from: 'buildings',
+          localField: 'room.building_id',
+          foreignField: '_id',
+          as: 'building'
+        }
       },
       { $unwind: '$building' },
       { $match: { 'building.is_active': true } },
       {
         $group: {
-          _id: '$building_id',
+          _id: '$building._id',
           building_name: { $first: '$building.name' },
           building_type: { $first: '$building.type' },
           count: { $sum: 1 },
@@ -220,7 +251,7 @@ export async function GET(request: NextRequest) {
           partial: partialRooms,
           full: fullRooms,
           occupancy_rate: Number(roomOccupancyRate.toFixed(1)),
-          by_type: bedStatsByType,
+          by_type: finalBedStatsByType, // ✅ Now shows both men and women
         },
         beds: {
           total: totalBeds,

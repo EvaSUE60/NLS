@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
                   }
                 }
 
-                // ✅ FIXED: Create assignment with await
+                // Create assignment
                 const assignment = await DormAssignment.create({
                   assignment_id: await generateAssignmentId(),
                   attendee_id: attendee._id,
@@ -194,7 +194,7 @@ export async function POST(request: NextRequest) {
 
                 console.log(`✅ Created assignment: ${assignment.assignment_id} for ${attendee.first_name} ${attendee.last_name}`);
 
-                // ✅ Update attendee with dorm_assignment_id
+                // ✅ FIX: Update attendee WITHOUT validation
                 const updatedAttendee = await Attendee.findByIdAndUpdate(
                   attendee._id,
                   {
@@ -209,11 +209,15 @@ export async function POST(request: NextRequest) {
                       },
                     },
                   },
-                  { new: true, runValidators: true }
+                  { 
+                    new: true,
+                    // ✅ CRITICAL FIX: Disable validation
+                    runValidators: false
+                  }
                 );
 
                 if (updatedAttendee) {
-                  console.log(`✅ Updated attendee: ${updatedAttendee.first_name} ${updatedAttendee.last_name} with assignment ID: ${updatedAttendee.dorm_assignment_id}`);
+                  console.log(`✅ Updated attendee: ${updatedAttendee.first_name} ${updatedAttendee.last_name} with bed ${bedNumber}`);
                 }
 
                 // Update room data

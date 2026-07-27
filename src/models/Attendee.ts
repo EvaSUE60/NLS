@@ -121,7 +121,7 @@ const AttendeeSchema = new Schema<IAttendee>(
     },
     dorm_cache: {
       roomNumber: { type: String, trim: true, default: null },
-      bedNumber: { type: Number, min: 1, max: 4, default: null },
+      bedNumber: { type: Number, min: 1, max: 30, default: null },
       floor: { type: String, trim: true, default: null },
       buildingType: { type: String, enum: ["men", "women"], default: null },
       buildingName: { type: String, trim: true, default: null },
