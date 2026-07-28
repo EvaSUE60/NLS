@@ -655,7 +655,7 @@ export default function PublicSeminarsPage() {
                 <div className="flex flex-col gap-2 pt-1">
                   <button
                     onClick={() => {
-                      setCurrentStep(2);
+                      setCurrentStep(1);
                       setRegistrationData(null);
                       setPendingSeminar(null);
                       setConfirmNlsId('');
@@ -663,13 +663,9 @@ export default function PublicSeminarsPage() {
                     }}
                     className="w-full bg-emerald-700 hover:bg-emerald-800 text-white py-2.5 px-4 rounded-xl text-xs font-bold transition-all"
                   >
-                    Register for Another Seminar
+                    Back to Seminar
                   </button>
-                  <Link href="/" className="w-full">
-                    <button className="w-full border border-[#d2e5d7] bg-white hover:bg-gray-50 text-[#0C0D0D] py-2.5 px-4 rounded-xl text-xs font-bold transition-all">
-                      Back to Home
-                    </button>
-                  </Link>
+                  
                 </div>
               </div>
             </motion.div>

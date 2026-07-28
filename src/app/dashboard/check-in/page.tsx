@@ -1,12 +1,12 @@
 // src/app/dashboard/check-in/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
-import { 
-  Search, 
-  UserCheck, 
-  Clock, 
-  CheckCircle2, 
+import { useState, useEffect, useRef } from 'react';
+import {
+  Search,
+  UserCheck,
+  Clock,
+  CheckCircle2,
   XCircle,
   Users,
   RefreshCw,
@@ -17,26 +17,26 @@ import {
   Phone,
   MapPin,
   Building2,
-  Bed,
-  DoorOpen,
   Loader2,
-  QrCode,
   Scan,
   History,
   Sparkles,
   Zap,
-  CheckSquare,
   FileSpreadsheet,
   AlertCircle,
   UserX,
-  Filter
+  X,
+  Check,
+  ArrowRight,
+  Fingerprint,
+  Bed,
+  DoorOpen,
 } from 'lucide-react';
 import { Card } from '@/src/components/ui/Card';
 import { Badge } from '@/src/components/ui/Badge';
 import { Button } from '@/src/components/ui/Button';
 import { Avatar } from '@/src/components/ui/Avatar';
 import { useCheckin } from '@/src/hooks/useCheckin';
-import { useAttendeeStore } from '@/src/store/attendee.store';
 import { toast } from 'sonner';
 
 const regions = [
@@ -70,28 +70,36 @@ export default function CheckInPage() {
     selectAttendee,
   } = useCheckin();
 
-  const { isLoading: attendeesLoading, fetchAttendees } = useAttendeeStore();
-
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRegion, setSelectedRegion] = useState('All Regions');
   const [selectedGender, setSelectedGender] = useState('All Genders');
   const [currentPage, setCurrentPage] = useState(1);
   const [viewModalOpen, setViewModalOpen] = useState(false);
-  const [showScanner, setShowScanner] = useState(false);
+  const [checkinModalOpen, setCheckinModalOpen] = useState(false);
+  const [nlsIdInput, setNlsIdInput] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<'all' | 'checked-in' | 'pending'>('all');
+  const [foundAttendee, setFoundAttendee] = useState<any>(null);
+  const [checkinStep, setCheckinStep] = useState<'input' | 'confirm' | 'success'>('input');
+  const [checkinError, setCheckinError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchStats();
-    fetchAttendees({ limit: 100 });
-  }, []);
+  }, [fetchStats]);
+
+  // Focus input when modal opens
+  useEffect(() => {
+    if (checkinModalOpen && checkinStep === 'input') {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [checkinModalOpen, checkinStep]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
       await fetchStats();
-      await fetchAttendees({ limit: 100 });
       toast.success('Live event metrics updated!');
     } catch {
       toast.error('Failed to sync metrics');
@@ -104,23 +112,85 @@ export default function CheckInPage() {
     toast.success('Preparing CSV manifest for export...');
   };
 
-  const handleSearch = async (query: string) => {
-    if (!query.trim()) {
-      clearSelected();
+  // ==================== CHECK-IN MODAL HANDLERS ====================
+  const handleOpenCheckinModal = () => {
+    setCheckinModalOpen(true);
+    setCheckinStep('input');
+    setNlsIdInput('');
+    setFoundAttendee(null);
+    setCheckinError(null);
+    setSearchQuery('');
+  };
+
+  const handleNlsIdSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!nlsIdInput.trim()) {
+      toast.error('Please enter an NLS ID');
       return;
     }
-    
+
     setIsSearching(true);
+    setCheckinError(null);
+
     try {
-      await searchByNLS(query.trim());
-      if (searchResults.length === 0) {
-        toast.info('No attendee record found matching that search.');
+      const results = await searchByNLS(nlsIdInput.trim());
+      
+      if (!results || results.length === 0) {
+        setCheckinError('No attendee found with that NLS ID');
+        toast.error('No attendee found with that NLS ID');
+        return;
       }
-    } catch {
-      toast.error('Search operation failed.');
+
+      const attendee = results[0];
+      
+      if (attendee.arrived) {
+        setCheckinError(`${attendee.first_name} ${attendee.last_name} is already checked in`);
+        toast.error(`${attendee.first_name} ${attendee.last_name} is already checked in`);
+        return;
+      }
+
+      setFoundAttendee(attendee);
+      setCheckinStep('confirm');
+      toast.success(`Found ${attendee.first_name} ${attendee.last_name}`);
+    } catch (err: any) {
+      setCheckinError(err?.message || 'Failed to find attendee. Please try again.');
+      toast.error(err?.message || 'Failed to find attendee. Please try again.');
     } finally {
       setIsSearching(false);
     }
+  };
+
+  const handleConfirmCheckin = async () => {
+    if (!foundAttendee) return;
+
+    try {
+      const result = await checkInArrival(foundAttendee._id, 'manual');
+      
+      if (result?.data?.attendee) {
+        setFoundAttendee({
+          ...foundAttendee,
+          ...result.data.attendee,
+        });
+      }
+      
+      setCheckinStep('success');
+      toast.success(`${foundAttendee.first_name} ${foundAttendee.last_name} checked in successfully!`);
+      await fetchStats();
+      setSearchQuery('');
+      clearSelected();
+    } catch (err: any) {
+      toast.error(err?.message || 'Check-in failed');
+      setCheckinError(err?.message || 'Check-in failed');
+    }
+  };
+
+  const handleCloseCheckinModal = () => {
+    setCheckinModalOpen(false);
+    setCheckinStep('input');
+    setNlsIdInput('');
+    setFoundAttendee(null);
+    setCheckinError(null);
   };
 
   const handleCheckIn = async (attendeeId: string) => {
@@ -130,7 +200,6 @@ export default function CheckInPage() {
       setSearchQuery('');
       clearSelected();
       await fetchStats();
-      await fetchAttendees({ limit: 100 });
     } catch (err: any) {
       toast.error(err?.message || 'Check-in failed');
     }
@@ -149,7 +218,7 @@ export default function CheckInPage() {
 
   const recentCheckIns = stats?.recent_check_ins || [];
 
-  const displayList = searchQuery.trim() 
+  const displayList = searchQuery.trim() && searchResults.length > 0
     ? searchResults 
     : recentCheckIns;
 
@@ -179,7 +248,7 @@ export default function CheckInPage() {
     currentPage * itemsPerPage
   );
 
-  const isLoadingState = isLoading || attendeesLoading;
+  const isLoadingState = isLoading;
 
   if (isLoadingState && !stats) {
     return (
@@ -212,7 +281,6 @@ export default function CheckInPage() {
     <div className="space-y-8 pb-12 bg-[#FAFAFA] min-h-screen p-2 sm:p-6">
       {/* ==================== GLASS HERO HEADER ==================== */}
       <div className="relative overflow-hidden bg-[#0C0D0D] rounded-3xl p-6 sm:p-8 text-white shadow-2xl border border-white/10">
-        {/* Glowing Mint Ambient Orbs */}
         <div className="absolute top-0 right-0 -mt-12 -mr-12 w-80 h-80 bg-[#ECF4EE]/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-1/4 -mb-12 w-60 h-60 bg-[#ECF4EE]/10 rounded-full blur-2xl pointer-events-none" />
 
@@ -225,17 +293,17 @@ export default function CheckInPage() {
               Express Check-In
             </h1>
             <p className="text-[#ECF4EE]/80 text-sm max-w-xl">
-              Seamlessly search attendees, scan QR passes in real time, and monitor live arrival capacity.
+              Seamlessly search attendees and monitor live arrival capacity.
             </p>
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
             <button
-              onClick={() => setShowScanner(true)}
-              className="flex items-center gap-2.5 px-5 py-3 rounded-2xl bg-[#ECF4EE] hover:bg-[#ECF4EE]/90 text-[#0C0D0D] font-bold shadow-lg shadow-[#ECF4EE]/10 active:scale-95 transition-all text-sm"
+              onClick={handleOpenCheckinModal}
+              className="flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-[#ECF4EE] hover:bg-[#ECF4EE]/90 text-[#0C0D0D] font-bold shadow-lg shadow-[#ECF4EE]/10 active:scale-95 transition-all text-sm"
             >
-              <Scan className="h-4 w-4 stroke-[2.5]" />
-              Scan QR Badge
+              <UserCheck className="h-4 w-4 stroke-[2.5]" />
+              Check-in Student
             </button>
             <Button 
               variant="secondary" 
@@ -366,7 +434,6 @@ export default function CheckInPage() {
       {/* ==================== ACTION & LOOKUP CONTROLS ==================== */}
       <div className="bg-white/70 backdrop-blur-md p-4 sm:p-5 rounded-3xl border border-white shadow-sm space-y-4">
         <div className="flex flex-col md:flex-row gap-3">
-          {/* Quick Lookup Bar */}
           <div className="flex-1 relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[#0C0D0D]/40" />
             <input
@@ -376,8 +443,11 @@ export default function CheckInPage() {
               onChange={(e) => {
                 const val = e.target.value;
                 setSearchQuery(val);
-                if (val.length >= 3) handleSearch(val);
-                else if (!val) clearSelected();
+                if (val.length >= 3) {
+                  searchByNLS(val);
+                } else if (!val) {
+                  clearSelected();
+                }
               }}
               className="w-full pl-11 pr-10 py-3 bg-[#FAFAFA] border border-[#0C0D0D]/10 rounded-2xl text-sm font-semibold text-[#0C0D0D] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0C0D0D] transition-all placeholder:text-[#0C0D0D]/40 shadow-inner"
             />
@@ -386,7 +456,6 @@ export default function CheckInPage() {
             )}
           </div>
 
-          {/* Region and Gender Selectors */}
           <div className="flex items-center gap-2 overflow-x-auto">
             <select
               value={selectedRegion}
@@ -476,8 +545,8 @@ export default function CheckInPage() {
               <tr>
                 <th className="px-5 py-4">Attendee</th>
                 <th className="px-5 py-4">Region</th>
+                <th className="px-5 py-4">Gender</th>
                 <th className="px-5 py-4">Check-in Time</th>
-                <th className="px-5 py-4">Method</th>
                 <th className="px-5 py-4">Status</th>
                 <th className="px-5 py-4 text-right">Action</th>
               </tr>
@@ -504,9 +573,9 @@ export default function CheckInPage() {
                   const isArrived = record.arrived === true || record.arrival_time !== null;
                   const fullName = `${record.first_name || ''} ${record.last_name || ''}`;
                   const region = record.region || 'Unknown';
+                  const gender = record.gender || 'N/A';
                   const uniqueId = record.unique_id || 'NLS-PENDING';
                   const checkInTime = record.arrival_time || record.check_in_time;
-                  const method = record.arrival_method || record.method || 'manual';
                   
                   return (
                     <tr key={record._id || record.id} className="hover:bg-[#ECF4EE]/40 transition-colors group">
@@ -527,6 +596,17 @@ export default function CheckInPage() {
                         <span className="text-xs font-bold text-[#0C0D0D]/70">{region}</span>
                       </td>
                       <td className="px-5 py-4">
+                        <span className={`text-xs font-bold px-2 py-1 rounded-lg ${
+                          gender === 'Male' 
+                            ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                            : gender === 'Female'
+                            ? 'bg-pink-50 text-pink-700 border border-pink-200'
+                            : 'bg-gray-50 text-gray-500 border border-gray-200'
+                        }`}>
+                          {gender}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
                         {checkInTime ? (
                           <div className="flex items-center gap-1.5">
                             <Clock className="w-3.5 h-3.5 text-[#0C0D0D]/40" />
@@ -537,11 +617,6 @@ export default function CheckInPage() {
                         ) : (
                           <span className="text-xs text-[#0C0D0D]/40 italic font-normal">Not checked in</span>
                         )}
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className="px-2.5 py-1 rounded-xl text-xs font-bold bg-[#ECF4EE] text-[#0C0D0D] border border-[#0C0D0D]/10">
-                          {method === 'qr_code' ? 'QR Code' : 'Manual'}
-                        </span>
                       </td>
                       <td className="px-5 py-4">
                         {isArrived ? (
@@ -622,53 +697,241 @@ export default function CheckInPage() {
         )}
       </Card>
 
-      {/* ==================== GLASS OPTICAL QR SCANNER MODAL ==================== */}
-      {showScanner && (
+      {/* ==================== CHECK-IN MODAL ==================== */}
+      {checkinModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0C0D0D]/70 backdrop-blur-md">
-          <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl border border-white">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="p-2.5 rounded-2xl bg-[#0C0D0D] text-[#ECF4EE]">
-                  <Scan className="h-5 w-5" />
+          <div className="bg-white rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl border border-white">
+            <div className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-[#0C0D0D]/5 px-6 py-4 flex items-center justify-between z-10">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-2xl bg-[#0C0D0D] text-[#ECF4EE]">
+                  <UserCheck className="h-5 w-5" />
                 </div>
-                <h3 className="text-base font-extrabold text-[#0C0D0D]">Optical Scanner</h3>
+                <div>
+                  <h3 className="font-extrabold text-[#0C0D0D]">Check-in Student</h3>
+                  <p className="text-xs text-[#0C0D0D]/50 font-medium">
+                    {checkinStep === 'input' && 'Enter NLS ID to find student'}
+                    {checkinStep === 'confirm' && 'Verify student information'}
+                    {checkinStep === 'success' && 'Check-in complete!'}
+                  </p>
+                </div>
               </div>
               <button
-                onClick={() => setShowScanner(false)}
+                onClick={handleCloseCheckinModal}
                 className="p-1.5 rounded-full hover:bg-[#ECF4EE] text-[#0C0D0D]/40 hover:text-[#0C0D0D] transition-colors"
               >
-                <XCircle className="h-5 w-5" />
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="relative aspect-square bg-[#0C0D0D] rounded-3xl overflow-hidden border-2 border-[#ECF4EE]/30 flex items-center justify-center">
-              <div className="absolute inset-0 bg-[radial-gradient(#ECF4EE_1px,transparent_1px)] [background-size:16px_16px] opacity-20" />
-              
-              <div className="relative w-48 h-48 border-2 border-[#ECF4EE] rounded-3xl flex items-center justify-center shadow-[0_0_30px_rgba(236,244,238,0.3)]">
-                <div className="absolute top-0 left-0 w-4 h-4 border-t-4 border-l-4 border-[#ECF4EE] -mt-1 -ml-1" />
-                <div className="absolute top-0 right-0 w-4 h-4 border-t-4 border-r-4 border-[#ECF4EE] -mt-1 -mr-1" />
-                <div className="absolute bottom-0 left-0 w-4 h-4 border-b-4 border-l-4 border-[#ECF4EE] -mb-1 -ml-1" />
-                <div className="absolute bottom-0 right-0 w-4 h-4 border-b-4 border-r-4 border-[#ECF4EE] -mb-1 -mr-1" />
-                <QrCode className="h-16 w-16 text-[#ECF4EE] animate-pulse" />
-              </div>
+            <div className="p-6 space-y-6">
+              {/* Step 1: Input NLS ID */}
+              {checkinStep === 'input' && (
+                <form onSubmit={handleNlsIdSubmit} className="space-y-4">
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-[#ECF4EE] rounded-full flex items-center justify-center mx-auto mb-3">
+                      <Fingerprint className="h-8 w-8 text-[#0C0D0D]" />
+                    </div>
+                    <p className="text-sm text-[#0C0D0D]/60 font-medium">
+                      Enter the student's NLS ID to begin check-in
+                    </p>
+                  </div>
 
-              <div className="absolute bottom-4 left-0 right-0 text-center">
-                <span className="text-xs font-bold px-3 py-1 rounded-full bg-white/10 text-[#ECF4EE] border border-white/20 backdrop-blur-md">
-                  Position pass QR inside target frame
-                </span>
-              </div>
-            </div>
+                  <div>
+                    <label className="block text-xs font-bold text-[#0C0D0D] mb-1.5 uppercase tracking-wider">
+                      NLS ID <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      value={nlsIdInput}
+                      onChange={(e) => setNlsIdInput(e.target.value.toUpperCase())}
+                      placeholder="e.g., NLS-2026-001 or 001"
+                      className="w-full px-4 py-3 bg-[#FAFAFA] border border-[#0C0D0D]/10 rounded-2xl text-sm font-semibold text-[#0C0D0D] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0C0D0D] transition-all placeholder:text-[#0C0D0D]/40 font-mono text-center"
+                      autoFocus
+                    />
+                    <p className="text-xs text-[#0C0D0D]/40 mt-1.5 text-center">
+                      Enter full ID or just the number (e.g., 001)
+                    </p>
+                  </div>
 
-            <div className="mt-5 flex gap-3">
-              <Button variant="secondary" className="flex-1 rounded-2xl font-bold bg-[#FAFAFA] border-[#0C0D0D]/10" onClick={() => setShowScanner(false)}>
-                Dismiss
-              </Button>
+                  {checkinError && (
+                    <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3 flex items-start gap-2">
+                      <AlertCircle className="h-4 w-4 text-rose-600 flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-rose-600 font-medium">{checkinError}</p>
+                    </div>
+                  )}
+
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    disabled={isSearching}
+                    className="w-full bg-[#0C0D0D] hover:bg-[#0C0D0D]/90 text-white rounded-2xl py-3 font-extrabold"
+                  >
+                    {isSearching ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Searching...
+                      </>
+                    ) : (
+                      <>
+                        <Search className="h-4 w-4 mr-2" />
+                        Find Student
+                      </>
+                    )}
+                  </Button>
+                </form>
+              )}
+
+              {/* Step 2: Confirm - Cleaned up */}
+              {checkinStep === 'confirm' && foundAttendee && (
+                <div className="space-y-5">
+                  <div className="bg-[#ECF4EE] rounded-2xl p-5 border border-[#0C0D0D]/10">
+                    <div className="flex items-center gap-4">
+                      <Avatar 
+                        name={`${foundAttendee.first_name} ${foundAttendee.last_name}`} 
+                        size="lg" 
+                        className="ring-4 ring-white shadow-md"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-lg font-extrabold text-[#0C0D0D]">
+                          {foundAttendee.first_name} {foundAttendee.last_name}
+                        </h4>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-lg bg-white/70 text-[#0C0D0D] border border-[#0C0D0D]/10">
+                            {foundAttendee.unique_id}
+                          </span>
+                          <span className="text-xs font-bold text-[#0C0D0D]/60">• {foundAttendee.region}</span>
+                        </div>
+                      </div>
+                      <Badge variant="success" className="bg-emerald-100 text-emerald-700 border-emerald-200">
+                        Found
+                      </Badge>
+                    </div>
+                  </div>
+
+                 
+
+                  {checkinError && (
+                    <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3 flex items-start gap-2">
+                      <AlertCircle className="h-4 w-4 text-rose-600 flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-rose-600 font-medium">{checkinError}</p>
+                    </div>
+                  )}
+
+                  <div className="flex gap-3">
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setCheckinStep('input');
+                        setFoundAttendee(null);
+                        setNlsIdInput('');
+                        setCheckinError(null);
+                        setTimeout(() => inputRef.current?.focus(), 100);
+                      }}
+                      className="flex-1 rounded-2xl border-[#0C0D0D]/10 bg-[#FAFAFA] text-[#0C0D0D] font-bold"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="primary"
+                      onClick={handleConfirmCheckin}
+                      disabled={isCheckingIn}
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl py-3 font-extrabold"
+                    >
+                      {isCheckingIn ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <Check className="h-4 w-4 mr-2" />
+                          Confirm Check-in
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Success - Added Floor and Building */}
+              {checkinStep === 'success' && foundAttendee && (
+                <div className="text-center py-6 space-y-4">
+                  <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto">
+                    <CheckCircle2 className="h-10 w-10 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-extrabold text-[#0C0D0D]">Check-in Complete!</h3>
+                    <p className="text-sm text-[#0C0D0D]/60 mt-1">
+                      {foundAttendee.first_name} {foundAttendee.last_name} has been successfully checked in
+                    </p>
+                  </div>
+
+                  <div className="bg-[#ECF4EE] rounded-2xl p-4 border border-[#0C0D0D]/10 text-left space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-[#0C0D0D]/60">NLS ID</span>
+                      <span className="font-bold text-[#0C0D0D]">{foundAttendee.unique_id}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-[#0C0D0D]/60">Name</span>
+                      <span className="font-bold text-[#0C0D0D]">{foundAttendee.first_name} {foundAttendee.last_name}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-[#0C0D0D]/60">Region</span>
+                      <span className="font-bold text-[#0C0D0D]">{foundAttendee.region}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-[#0C0D0D]/60">Gender</span>
+                      <span className="font-bold text-[#0C0D0D]">{foundAttendee.gender}</span>
+                    </div>
+                    {/* ✅ Added Building and Floor */}
+                    <div className="flex justify-between text-sm">
+                      <span className="text-[#0C0D0D]/60">Building</span>
+                      <span className="font-bold text-[#0C0D0D]">
+                        {foundAttendee.dorm_cache?.buildingName || 'Not assigned'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-[#0C0D0D]/60">Floor</span>
+                      <span className="font-bold text-[#0C0D0D]">
+                        {foundAttendee.dorm_cache?.floor || 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-[#0C0D0D]/60">Room</span>
+                      <span className="font-bold text-[#0C0D0D]">
+                        {foundAttendee.dorm_cache?.roomNumber || 'Not assigned'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-[#0C0D0D]/60">Bed</span>
+                      <span className="font-bold text-[#0C0D0D]">
+                        {foundAttendee.dorm_cache?.bedNumber || 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm border-t border-[#0C0D0D]/10 pt-2 mt-1">
+                      <span className="text-[#0C0D0D]/60">Check-in Time</span>
+                      <span className="font-bold text-[#0C0D0D]">{new Date().toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  <Button
+                    variant="primary"
+                    onClick={handleCloseCheckinModal}
+                    className="w-full bg-[#0C0D0D] hover:bg-[#0C0D0D]/90 text-white rounded-2xl py-3 font-extrabold"
+                  >
+                    <ArrowRight className="h-4 w-4 mr-2" />
+                    Done
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* ==================== GLASS ATTENDEE DOSSIER MODAL ==================== */}
+      {/* ==================== ATTENDEE DOSSIER MODAL ==================== */}
       {viewModalOpen && selectedAttendee && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0C0D0D]/70 backdrop-blur-md">
           <div className="bg-white rounded-3xl w-full max-w-xl max-h-[90vh] overflow-y-auto shadow-2xl border border-white">
@@ -681,12 +944,11 @@ export default function CheckInPage() {
                 onClick={() => setViewModalOpen(false)}
                 className="p-1.5 rounded-full hover:bg-[#ECF4EE] text-[#0C0D0D]/40 hover:text-[#0C0D0D] transition-colors"
               >
-                <XCircle className="h-5 w-5" />
+                <X className="h-5 w-5" />
               </button>
             </div>
 
             <div className="p-6 space-y-6">
-              {/* Profile Card Header */}
               <div className="flex items-center gap-4 p-5 rounded-3xl bg-[#ECF4EE] border border-[#0C0D0D]/10">
                 <Avatar 
                   name={`${selectedAttendee.first_name} ${selectedAttendee.last_name}`} 
@@ -711,37 +973,17 @@ export default function CheckInPage() {
                 </div>
               </div>
 
-              {/* Information Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-4 rounded-2xl bg-[#FAFAFA] border border-[#0C0D0D]/5 space-y-2">
-                  <p className="text-xs font-extrabold uppercase tracking-wider text-[#0C0D0D]/40">Contact Information</p>
-                  <div className="space-y-1.5 text-xs text-[#0C0D0D] font-bold">
-                    <div className="flex items-center gap-2">
-                      <Mail className="w-3.5 h-3.5 text-[#0C0D0D]/40" />
-                      <span>{selectedAttendee.email || 'N/A'}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Phone className="w-3.5 h-3.5 text-[#0C0D0D]/40" />
-                      <span>{selectedAttendee.phone || 'N/A'}</span>
-                    </div>
-                  </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 rounded-2xl bg-[#FAFAFA] border border-[#0C0D0D]/5 col-span-2">
+                  <p className="text-xs font-extrabold uppercase tracking-wider text-[#0C0D0D]/40">Region</p>
+                  <p className="text-sm font-bold text-[#0C0D0D]">{selectedAttendee.region || 'N/A'}</p>
                 </div>
-
-                <div className="p-4 rounded-2xl bg-[#FAFAFA] border border-[#0C0D0D]/5 space-y-2">
-                  <p className="text-xs font-extrabold uppercase tracking-wider text-[#0C0D0D]/40">Delegation Details</p>
-                  <div className="space-y-1.5 text-xs text-[#0C0D0D] font-bold">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-3.5 h-3.5 text-[#0C0D0D]/40" />
-                      <span>{selectedAttendee.region}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Building2 className="w-3.5 h-3.5 text-[#0C0D0D]/40" />
-                      <span>{selectedAttendee.local_church || 'Central Fellowship'}</span>
-                    </div>
-                  </div>
+                <div className="p-4 rounded-2xl bg-[#FAFAFA] border border-[#0C0D0D]/5 col-span-2">
+                  <p className="text-xs font-extrabold uppercase tracking-wider text-[#0C0D0D]/40">Gender</p>
+                  <p className="text-sm font-bold text-[#0C0D0D]">{selectedAttendee.gender || 'N/A'}</p>
                 </div>
-
-                <div className="p-4 rounded-2xl bg-[#ECF4EE]/60 border border-[#0C0D0D]/10 sm:col-span-2 space-y-2">
+                {/* ✅ Added Building and Floor to Dossier */}
+                <div className="p-4 rounded-2xl bg-[#ECF4EE]/60 border border-[#0C0D0D]/10 col-span-2">
                   <p className="text-xs font-extrabold uppercase tracking-wider text-[#0C0D0D]/60">Lodging & Room Quarters</p>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-extrabold text-[#0C0D0D]">
                     <div className="p-2.5 rounded-xl bg-white border border-[#0C0D0D]/5 shadow-xs">
@@ -764,7 +1006,6 @@ export default function CheckInPage() {
                 </div>
               </div>
 
-              {/* Modal Actions */}
               <div className="flex items-center gap-3 pt-2">
                 {!selectedAttendee.arrived && (
                   <Button 

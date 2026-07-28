@@ -32,10 +32,10 @@ export interface IAttendee extends Document {
   
   // ==================== SESSIONS ====================
   sessions_cache: {
-    attended: string[];    // session_ids
-    on_time: string[];     // session_ids (on-time attendance)
-    late: string[];        // session_ids (late attendance)
-    absent: string[];      // session_ids (absent)
+    attended: string[];
+    on_time: string[];
+    late: string[];
+    absent: string[];
   };
   
   // ==================== GROUP ====================
@@ -236,7 +236,7 @@ AttendeeSchema.set("toJSON", {
       // Seminars
       seminars_cache: ret.seminars_cache || { registered: [], attended: [] },
       
-      // ✅ Sessions
+      // Sessions
       sessions_cache: ret.sessions_cache || { 
         attended: [], 
         on_time: [], 
@@ -254,6 +254,66 @@ AttendeeSchema.set("toJSON", {
       arrived: ret.arrived,
       arrival_time: ret.arrival_time,
       arrival_method: ret.arrival_method,
+      arrival_checked_by: ret.arrival_checked_by,
+      
+      // Timestamps
+      created_at: ret.created_at,
+      updated_at: ret.updated_at,
+    };
+  },
+});
+
+// ==================== TO OBJECT ====================
+AttendeeSchema.set("toObject", {
+  virtuals: true,
+  transform: function(_doc, ret) {
+    return {
+      _id: ret._id,
+      unique_id: ret.unique_id,
+      first_name: ret.first_name,
+      last_name: ret.last_name,
+      full_name: ret.full_name,
+      phone: ret.phone,
+      email: ret.email,
+      gender: ret.gender,
+      region: ret.region,
+      local_church: ret.local_church,
+      campus: ret.campus,
+      payment_status: ret.payment_status,
+      
+      // Dorm
+      dorm_assignment_id: ret.dorm_assignment_id,
+      dorm_cache: ret.dorm_cache || { 
+        roomNumber: null, 
+        bedNumber: null, 
+        floor: null, 
+        buildingType: null,
+        buildingName: null 
+      },
+      has_room: ret.has_room,
+      
+      // Seminars
+      seminars_cache: ret.seminars_cache || { registered: [], attended: [] },
+      
+      // Sessions
+      sessions_cache: ret.sessions_cache || { 
+        attended: [], 
+        on_time: [], 
+        late: [], 
+        absent: [] 
+      },
+      
+      // Group
+      group_id: ret.group_id,
+      
+      // Sync
+      synced_at: ret.synced_at,
+      
+      // Arrival Check-in
+      arrived: ret.arrived,
+      arrival_time: ret.arrival_time,
+      arrival_method: ret.arrival_method,
+      arrival_checked_by: ret.arrival_checked_by,
       
       // Timestamps
       created_at: ret.created_at,

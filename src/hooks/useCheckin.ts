@@ -3,6 +3,7 @@
 
 import { useEffect } from 'react';
 import { useCheckInStore } from '@/src/store/checkin.store';
+import { AttendeeSearchResult } from '@/src/types/checkin.types';
 
 export const useCheckin = () => {
   const {
@@ -38,22 +39,22 @@ export const useCheckin = () => {
   }, []);
 
   // ==================== SEARCH BY NLS ID ====================
-  const searchByNLS = (nlsId: string) => {
+  const searchByNLS = (nlsId: string): Promise<AttendeeSearchResult[]> => {
     return searchAttendee(nlsId, 'unique_id');
   };
 
   // ==================== SEARCH BY NAME ====================
-  const searchByName = (name: string) => {
+  const searchByName = (name: string): Promise<AttendeeSearchResult[]> => {
     return searchAttendee(name, 'name');
   };
 
   // ==================== SEARCH BY EMAIL ====================
-  const searchByEmail = (email: string) => {
+  const searchByEmail = (email: string): Promise<AttendeeSearchResult[]> => {
     return searchAttendee(email, 'email');
   };
 
   // ==================== SEARCH BY PHONE ====================
-  const searchByPhone = (phone: string) => {
+  const searchByPhone = (phone: string): Promise<AttendeeSearchResult[]> => {
     return searchAttendee(phone, 'phone');
   };
 

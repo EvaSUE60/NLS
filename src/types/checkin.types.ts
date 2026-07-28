@@ -18,6 +18,11 @@ export interface ArrivalCheckInResponse {
       last_name: string;
       full_name: string;
       region: string;
+      gender: string;
+      campus?: string;
+      email?: string;
+      phone?: string;
+      local_church?: string;
       arrived: boolean;
       arrival_time: string;
       arrival_method: string;
@@ -51,6 +56,81 @@ export interface BulkCheckInResponse {
       full_name: string;
     }>;
   };
+}
+
+// ==================== SEARCH ====================
+
+export interface AttendeeSearchResult {
+  _id: string;
+  unique_id: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  region: string;
+  gender: string;
+  campus?: string;
+  email?: string;
+  phone?: string;
+  local_church?: string;
+  arrived: boolean;
+  arrival_time: string | null;
+  arrival_method?: string | null;
+  badge_printed?: boolean;
+  dorm_cache: {
+    roomNumber: string | null;
+    bedNumber: number | null;
+    floor: string | null;
+    buildingType: string | null;
+    buildingName: string | null;
+  };
+  group_id?: string | null;
+}
+
+export interface AttendeeSearchResponse {
+  success: boolean;
+  data: {
+    attendees: AttendeeSearchResult[];
+    count: number;
+    query: string;
+    search_by: string;
+  };
+}
+
+// ==================== CHECK-IN STATS ====================
+
+export interface CheckInStats {
+  summary: {
+    total_attendees: number;
+    arrived: number;
+    not_arrived: number;
+    arrival_rate: string;
+    recent_arrivals: number;
+    badges_printed: number;
+  };
+  by_region: Array<{
+    _id: string;
+    total: number;
+    arrived: number;
+    not_arrived: number;
+  }>;
+  recent_check_ins: Array<{
+    _id: string;
+    unique_id: string;
+    first_name: string;
+    last_name: string;
+    region: string;
+    gender?: string;
+    campus?: string;
+    arrival_time: string;
+    arrival_method: string;
+    dorm_cache?: {
+      roomNumber: string | null;
+      bedNumber: number | null;
+      floor: string | null;
+      buildingType: string | null;
+      buildingName: string | null;
+    };
+  }>;
 }
 
 // ==================== SESSION CHECK-IN ====================
@@ -134,87 +214,6 @@ export interface SeminarCheckInResponse {
     penalty_applied: boolean;
     penalty_points: number;
   };
-}
-
-// ==================== SEARCH ====================
-
-export interface AttendeeSearchResult {
-  _id: string;
-  unique_id: string;
-  first_name: string;
-  last_name: string;
-  full_name: string;
-  region: string;
-  arrived: boolean;
-  arrival_time: string | null;
-  badge_printed: boolean;
-  email?: string;
-  phone?: string;
-  local_church?: string;
-  dorm_cache: {
-    roomNumber: string | null;
-    bedNumber: number | null;
-    floor: string | null;
-    buildingType: string | null;
-    buildingName: string | null;
-  };
-  group_id?: string | null;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-export interface AttendeeSearchResponse {
-  success: boolean;
-  data: {
-    attendees: AttendeeSearchResult[];
-    count: number;
-    query: string;
-    search_by: string;
-  };
-}
-
-// ==================== CHECK-IN STATS ====================
-
-export interface CheckInStats {
-  summary: {
-    total_attendees: number;
-    arrived: number;
-    not_arrived: number;
-    arrival_rate: string;
-    recent_arrivals: number;
-    badges_printed: number;
-  };
-  by_region: Array<{
-    _id: string;
-    total: number;
-    arrived: number;
-    not_arrived: number;
-  }>;
-  recent_check_ins: Array<{
-    _id: string;
-    unique_id: string;
-    first_name: string;
-    last_name: string;
-    region: string;
-    arrival_time: string;
-    arrival_method: string;
-  }>;
 }
 
 // ==================== SESSION ATTENDANCE ====================
