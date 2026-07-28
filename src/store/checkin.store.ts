@@ -7,6 +7,7 @@ import {
   CheckInStats,
   SessionAttendance,
   SeminarAttendance,
+  ArrivalCheckInResponse,
 } from '@/src/types/checkin.types';
 import { checkinService } from '@/src/service/checkin.service';
 
@@ -20,12 +21,12 @@ interface CheckInState {
   sessionAttendance: SessionAttendance[];
   seminarAttendance: SeminarAttendance[];
   isCheckingIn: boolean;
-  lastCheckInResult: any | null;
+  lastCheckInResult: ArrivalCheckInResponse | null;
 
   // ==================== ARRIVAL CHECK-IN ACTIONS ====================
   searchAttendee: (query: string, by?: 'unique_id' | 'name' | 'email' | 'phone') => Promise<AttendeeSearchResult[]>;
   selectAttendee: (attendee: AttendeeSearchResult | null) => void;
-  checkInArrival: (attendeeId: string, method?: 'manual' | 'bulk' | 'qr_code') => Promise<void>;
+  checkInArrival: (attendeeId: string, method?: 'manual' | 'bulk' | 'qr_code') => Promise<ArrivalCheckInResponse>;
   bulkCheckIn: (attendeeIds: string[], method?: 'manual' | 'bulk') => Promise<void>;
 
   // ==================== SESSION CHECK-IN ACTIONS ====================
@@ -65,7 +66,7 @@ export const useCheckInStore = create<CheckInState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await checkinService.searchAttendee(query, by);
-      const results = response.data.data.attendees;
+      const results = response.data.data.attendees || [];
       set({
         searchResults: results,
         selectedAttendee: results.length === 1 ? results[0] : null,
@@ -96,14 +97,30 @@ export const useCheckInStore = create<CheckInState>((set, get) => ({
         isCheckingIn: false,
       });
       
-      // Refresh selected attendee
-      const { selectedAttendee } = get();
-      if (selectedAttendee) {
-        await get().searchAttendee(selectedAttendee.unique_id, 'unique_id');
+      // Refresh selected attendee if it matches
+      const { selectedAttendee, searchResults } = get();
+      if (selectedAttendee && selectedAttendee._id === attendeeId) {
+        // Update the selected attendee with the new data
+        const updatedAttendee = {
+          ...selectedAttendee,
+          arrived: response.data.data.attendee.arrived,
+          arrival_time: response.data.data.attendee.arrival_time,
+          arrival_method: response.data.data.attendee.arrival_method,
+          dorm_cache: response.data.data.attendee.dorm_cache,
+        };
+        set({ selectedAttendee: updatedAttendee });
+        
+        // Also update in searchResults
+        const updatedResults = searchResults.map(a => 
+          a._id === attendeeId ? updatedAttendee : a
+        );
+        set({ searchResults: updatedResults });
       }
       
       // Refresh stats
       await get().fetchStats();
+      
+      return response.data;
     } catch (error: any) {
       set({
         error: error.response?.data?.message || 'Failed to check in attendee',
@@ -119,7 +136,7 @@ export const useCheckInStore = create<CheckInState>((set, get) => ({
     try {
       const response = await checkinService.bulkCheckIn({ attendeeIds, method });
       set({
-        lastCheckInResult: response.data,
+        lastCheckInResult: response.data as any,
         isCheckingIn: false,
       });
       
@@ -140,7 +157,7 @@ export const useCheckInStore = create<CheckInState>((set, get) => ({
     try {
       const response = await checkinService.checkInSession({ sessionId, nls_id: nlsId, method });
       set({
-        lastCheckInResult: response.data,
+        lastCheckInResult: response.data as any,
         isCheckingIn: false,
       });
       
@@ -164,7 +181,7 @@ export const useCheckInStore = create<CheckInState>((set, get) => ({
     try {
       const response = await checkinService.checkInSeminar({ seminarId, nls_id: nlsId, method });
       set({
-        lastCheckInResult: response.data,
+        lastCheckInResult: response.data as any,
         isCheckingIn: false,
       });
       
@@ -205,7 +222,7 @@ export const useCheckInStore = create<CheckInState>((set, get) => ({
     try {
       const response = await checkinService.getSessionAttendance(attendeeId);
       set({
-        sessionAttendance: response.data.data.sessions,
+        sessionAttendance: response.data.data.sessions || [],
         isLoading: false,
       });
     } catch (error: any) {
@@ -222,7 +239,7 @@ export const useCheckInStore = create<CheckInState>((set, get) => ({
     try {
       const response = await checkinService.getSeminarAttendance(attendeeId);
       set({
-        seminarAttendance: response.data.data.seminars,
+        seminarAttendance: response.data.data.seminars || [],
         isLoading: false,
       });
     } catch (error: any) {

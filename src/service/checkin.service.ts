@@ -35,7 +35,7 @@ export const checkinService = {
 
   // ==================== SEARCH ATTENDEE ====================
 
-  // Search attendee by NLS ID, name, email, or phone
+  // Search attendee by NLS ID
   searchAttendee: (query: string, by?: 'unique_id' | 'name' | 'email' | 'phone') => {
     const params = new URLSearchParams({ q: query });
     if (by) params.append('by', by);
