@@ -102,6 +102,12 @@ export default function Home() {
             >
               Staff
             </Link>
+            <Link
+              href="/seminars"
+              className="text-xs font-bold text-[#0C0D0D]/70 hover:text-[#0C0D0D] transition-colors"
+            >
+              Seminars
+            </Link>
             <span className="rounded-full bg-[#ECF4EE] border border-[#d2e5d7] px-2.5 py-1 text-[10px] font-mono font-bold text-[#0C0D0D]/60">
               v1.0.0
             </span>

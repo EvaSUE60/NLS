@@ -37,7 +37,7 @@ interface SeminarState {
   createSeminar: (data: CreateSeminarData) => Promise<Seminar>;
   updateSeminar: (id: string, data: UpdateSeminarData) => Promise<Seminar>;
   deleteSeminar: (id: string) => Promise<void>;
-  generateSeminars: (data: GenerateSeminarsData) => Promise<void>;
+  generateSeminars: (data: GenerateSeminarsData) => Promise<{ data: { created: number; skipped: number; total_seminars: number; days_processed: number; seminars_per_day: number; errors?: any[] } }>;
   fetchStats: (day?: number) => Promise<void>;
   fetchParticipants: (id: string, attended?: boolean) => Promise<void>;
   registerAttendee: (id: string, nls_id: string) => Promise<void>;
@@ -168,9 +168,10 @@ export const useSeminarStore = create<SeminarState>((set, get) => ({
   generateSeminars: async (data) => {
     set({ isProcessing: true, error: null });
     try {
-      await seminarService.generateSeminars(data);
+      const response = await seminarService.generateSeminars(data);
       await get().fetchSeminars();
       set({ isProcessing: false });
+      return response.data;
     } catch (error: any) {
       set({
         error: error.response?.data?.message || 'Failed to generate seminars',

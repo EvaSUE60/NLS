@@ -104,7 +104,7 @@ export async function PUT(
   }
 }
 
-// DELETE - Delete seminar
+// DELETE - Delete seminar (force delete with participants)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -124,7 +124,7 @@ export async function DELETE(
       );
     }
 
-    // Check if seminar has participants
+    // Find the seminar
     const seminar = await Seminar.findById(id);
     if (!seminar) {
       return NextResponse.json(
@@ -133,22 +133,27 @@ export async function DELETE(
       );
     }
 
-    if (seminar.participants.length > 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Cannot delete seminar with participants",
-          message: `This seminar has ${seminar.participants.length} registered participants. Remove them first.`,
-        },
-        { status: 400 }
-      );
+    const participantCount = seminar.participants?.length || 0;
+
+    // ✅ FORCE DELETE: Remove all participants first
+    if (participantCount > 0) {
+      // Clear all participants
+      seminar.participants = [];
+      await seminar.save();
+      console.log(`🗑️ Removed ${participantCount} participants from seminar "${seminar.name}"`);
     }
 
+    // Delete the seminar
     await Seminar.findByIdAndDelete(id);
 
     return NextResponse.json({
       success: true,
-      message: `Seminar "${seminar.name}" deleted successfully`,
+      message: `Seminar "${seminar.name}" deleted successfully${participantCount > 0 ? ` (${participantCount} participants removed)` : ''}`,
+      data: {
+        seminar_id: seminar.seminar_id,
+        name: seminar.name,
+        participants_removed: participantCount,
+      },
     });
   } catch (error) {
     console.error("Delete seminar error:", error);
