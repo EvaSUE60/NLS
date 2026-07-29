@@ -96,37 +96,34 @@ export async function generateSessionId(): Promise<string> {
   return generateId('SES');
 }
 
-// src/lib/generateId.ts - Update generateGroupCode
-
-export async function generateUniqueGroupCode(name: string): Promise<string> {
-  const words = name.split(' ');
-  let baseCode = words.map(word => word[0]).join('').toUpperCase();
-  
-  // If code is too short, add a random number
-  if (baseCode.length < 2) {
-    baseCode = `${baseCode}${Math.floor(Math.random() * 100)}`;
+// ✅ Generate unique group code with format G-1, G-2, G-3, ...
+export function generateGroupCode(name: string): string {
+  // Extract number from name if it ends with a number
+  const match = name.match(/\d+$/);
+  if (match) {
+    const num = parseInt(match[0]);
+    return `G-${num}`;
   }
   
-  // Check if code exists and add suffix if needed
-  let code = baseCode;
-  let counter = 1;
-  
-  while (true) {
-    const existing = await Group.findOne({ group_code: code });
-    if (!existing) {
-      return code;
-    }
-    code = `${baseCode}${counter}`;
-    counter++;
-  }
+  // Fallback: use hash of name
+  const hash = name.substring(0, 2).toUpperCase();
+  return `G-${hash}`;
 }
 
-// For backward compatibility
-export function generateGroupCode(name: string): string {
-  const words = name.split(' ');
-  const code = words.map(word => word[0]).join('').toUpperCase();
-  if (code.length < 2) {
-    return `${code}${Math.floor(Math.random() * 100)}`;
+// ✅ Generate unique group code with counter
+export async function generateUniqueGroupCode(prefix: string = 'G'): Promise<string> {
+  const existingGroups = await Group.find({ 
+    group_code: { $regex: `^${prefix}-\\d+$` } 
+  }).sort({ group_code: -1 }).limit(1);
+  
+  let lastNumber = 0;
+  if (existingGroups.length > 0) {
+    const lastCode = existingGroups[0].group_code;
+    const match = lastCode.match(/\d+$/);
+    if (match) {
+      lastNumber = parseInt(match[0]);
+    }
   }
-  return code;
+  
+  return `${prefix}-${lastNumber + 1}`;
 }

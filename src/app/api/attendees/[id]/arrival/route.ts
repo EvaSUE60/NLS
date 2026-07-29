@@ -6,6 +6,7 @@ import User from "@/src/models/User";
 import Building from "@/src/models/Building";
 import Room from "@/src/models/Room";
 import DormAssignment from "@/src/models/DormAssignment";
+import Group from "@/src/models/Group";
 import { requireRole } from "@/src/lib/auth/middleware";
 import { generateAssignmentId } from "@/src/lib/generateId";
 import mongoose from "mongoose";
@@ -16,10 +17,8 @@ async function updateBuildingStats(buildingId: Types.ObjectId) {
   try {
     console.log(`📊 Updating building stats for building ID: ${buildingId}`);
     
-    // Get all rooms for this building
     const rooms = await Room.find({ building_id: buildingId, is_active: true });
     
-    // Calculate stats from rooms
     const totalRooms = rooms.length;
     const totalBeds = rooms.reduce((sum, room) => sum + room.capacity, 0);
     const totalOccupants = rooms.reduce((sum, room) => sum + (room.current_occupancy || 0), 0);
@@ -32,7 +31,6 @@ async function updateBuildingStats(buildingId: Types.ObjectId) {
       occupiedRooms,
     });
 
-    // Update building with calculated stats
     const updatedBuilding = await Building.findByIdAndUpdate(
       buildingId,
       {
@@ -63,7 +61,6 @@ async function updateRoomStats(roomId: Types.ObjectId) {
   try {
     console.log(`📊 Updating room stats for room ID: ${roomId}`);
     
-    // Get all active assignments for this room
     const assignments = await DormAssignment.find({
       room_id: roomId,
       status: "active",
@@ -75,13 +72,11 @@ async function updateRoomStats(roomId: Types.ObjectId) {
       return null;
     }
 
-    // Calculate occupancy
     const currentOccupancy = assignments.length;
     const isFull = currentOccupancy >= room.capacity;
     const checkInStatus = currentOccupancy === 0 ? "empty" :
                          currentOccupancy >= room.capacity ? "full" : "partial";
 
-    // Update room
     room.current_occupancy = currentOccupancy;
     room.is_full = isFull;
     room.check_in_status = checkInStatus;
@@ -100,6 +95,74 @@ async function updateRoomStats(roomId: Types.ObjectId) {
   } catch (error) {
     console.error("❌ Failed to update room stats:", error);
     throw error;
+  }
+}
+
+// ==================== HELPER: Assign Attendee to Group ====================
+async function assignAttendeeToGroup(attendee: any) {
+  try {
+    console.log(`👥 Assigning group for: ${attendee.first_name} ${attendee.last_name}`);
+    
+    // Check if already in a group
+    if (attendee.group_id) {
+      console.log(`⚠️ Already in group: ${attendee.group_id}`);
+      return { success: true, group: null, message: "Already in a group" };
+    }
+
+    // ✅ Find first available group with space (sorted by current_size)
+    const group = await Group.findOne({ 
+      is_active: true 
+    }).sort({ current_size: 1 });
+
+    if (!group) {
+      console.log(`⚠️ No active groups available`);
+      return { success: false, group: null, message: "No groups available" };
+    }
+
+    // Check if group is full
+    if (group.current_size >= group.max_size) {
+      console.log(`⚠️ All groups are full`);
+      return { success: false, group: null, message: "All groups are full" };
+    }
+
+    // Add attendee to group
+    group.members.push({
+      attendeeId: attendee._id,
+      unique_id: attendee.unique_id,
+      fullName: `${attendee.first_name} ${attendee.last_name}`,
+      region: attendee.region,
+      joinedAt: new Date(),
+    });
+
+    // Update region distribution (for display only)
+    const regionDist = group.region_distribution || [];
+    const regionEntry = regionDist.find((r: any) => r.region === attendee.region);
+    if (regionEntry) {
+      regionEntry.count += 1;
+    } else {
+      regionDist.push({ region: attendee.region, count: 1 });
+    }
+    group.region_distribution = regionDist;
+
+    // Update group stats
+    group.current_size = group.members.length;
+    group.points = 40;
+    await group.save();
+
+    // Update attendee
+    attendee.group_id = group._id;
+    await attendee.save();
+
+    console.log(`✅ Assigned ${attendee.first_name} ${attendee.last_name} to ${group.name} (${group.current_size}/${group.max_size})`);
+
+    return { 
+      success: true, 
+      group, 
+      message: `Assigned to ${group.name}` 
+    };
+  } catch (error) {
+    console.error("❌ Failed to assign to group:", error);
+    return { success: false, group: null, message: "Failed to assign group" };
   }
 }
 
@@ -122,15 +185,12 @@ export async function POST(
     console.log(`🔍 Checking in attendee: ${id}`);
 
     // ==================== FIND ATTENDEE ====================
-    // Support both MongoDB _id and unique_id (NLS-2026-XXX)
     let attendee = null;
     
-    // Check if it's a MongoDB ObjectId
     if (mongoose.Types.ObjectId.isValid(id)) {
       attendee = await Attendee.findById(id);
     }
     
-    // If not found by _id, try by unique_id
     if (!attendee) {
       attendee = await Attendee.findOne({ unique_id: id });
     }
@@ -182,7 +242,6 @@ export async function POST(
     let room = null;
     let building = null;
 
-    // Check if already assigned
     if (attendee.dorm_assignment_id) {
       assignment = await DormAssignment.findById(attendee.dorm_assignment_id);
       if (assignment) {
@@ -191,9 +250,7 @@ export async function POST(
       }
     }
 
-    // If no assignment, find and assign a room
     if (!assignment || !room) {
-      // Get appropriate building based on gender
       const buildingType = attendee.gender === "Male" ? "men" : "women";
       building = await Building.findOne({ type: buildingType, is_active: true });
 
@@ -208,7 +265,6 @@ export async function POST(
         );
       }
 
-      // Find available rooms
       const availableRooms = await Room.find({
         building_id: building._id,
         is_full: false,
@@ -226,7 +282,6 @@ export async function POST(
         );
       }
 
-      // Find first available room with space
       let selectedRoom = null;
       let selectedBed = null;
 
@@ -275,7 +330,6 @@ export async function POST(
         );
       }
 
-      // Create assignment
       assignment = await DormAssignment.create({
         assignment_id: await generateAssignmentId(),
         attendee_id: attendee._id,
@@ -290,12 +344,12 @@ export async function POST(
 
       room = selectedRoom;
 
-      // ✅ UPDATE ROOM STATS
       await updateRoomStats(room._id);
-      
-      // ✅ UPDATE BUILDING STATS
       await updateBuildingStats(room.building_id);
     }
+
+    // ==================== AUTO-ASSIGN GROUP ====================
+    const groupResult = await assignAttendeeToGroup(attendee);
 
     // ==================== UPDATE ATTENDEE ====================
     attendee.arrived = true;
@@ -303,7 +357,6 @@ export async function POST(
     attendee.arrival_checked_by = staffUser._id;
     attendee.arrival_method = method;
 
-    // If assignment was created, update dorm_cache
     if (assignment && room) {
       attendee.dorm_assignment_id = assignment._id;
       attendee.dorm_cache = {
@@ -319,7 +372,6 @@ export async function POST(
 
     console.log(`✅ Checked in and assigned: ${attendee.first_name} ${attendee.last_name} to ${room?.room_number}`);
 
-    // Get the staff name for response
     const staffName = staffUser.name || staffUser.email;
 
     // ==================== RELOAD ATTENDEE ====================
@@ -339,7 +391,7 @@ export async function POST(
     // ==================== RESPONSE ====================
     return NextResponse.json({
       success: true,
-      message: `${attendee.first_name} ${attendee.last_name} checked in and assigned to ${room?.room_number || 'room'}`,
+      message: `${attendee.first_name} ${attendee.last_name} checked in and assigned to ${room?.room_number || 'room'}${groupResult.success ? ` and ${groupResult.message}` : ''}`,
       data: {
         attendee: {
           _id: updatedAttendee._id,
@@ -359,6 +411,7 @@ export async function POST(
             buildingType: null,
             buildingName: null,
           },
+          group_id: updatedAttendee.group_id,
         },
         assignment: assignment ? {
           id: assignment._id,
@@ -371,6 +424,13 @@ export async function POST(
             name: building?.name,
             type: building?.type,
           },
+        } : null,
+        group: groupResult.success && groupResult.group ? {
+          id: groupResult.group._id,
+          name: groupResult.group.name,
+          group_code: groupResult.group.group_code,
+          member_count: groupResult.group.current_size,
+          max_size: groupResult.group.max_size,
         } : null,
         checked_by: staffName,
       }

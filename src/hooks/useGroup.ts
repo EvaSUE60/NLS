@@ -7,6 +7,7 @@ import { CreateGroupData, AutoAssignGroupsRequest, UpdatePointsRequest } from '@
 
 export const useGroup = (autoFetch: boolean = true) => {
   const {
+    // ==================== STATE ====================
     groups,
     selectedGroup,
     activities,
@@ -16,18 +17,39 @@ export const useGroup = (autoFetch: boolean = true) => {
     isProcessing,
     error,
 
+    // ==================== FETCH ACTIONS ====================
     fetchGroups,
-    createGroup,
-    autoAssignGroups,
+    fetchGroup,
     fetchStats,
+    fetchActivities,
+
+    // ==================== CRUD ACTIONS ====================
+    createGroup,
+    updateGroup,
+    deleteGroup,
+
+    // ==================== BULK OPERATIONS ====================
+    bulkCreateGroups,
+    resetGroups,
+    bulkResetGroups,
+
+    // ==================== AUTO-ASSIGN ====================
+    autoAssignGroups,
+
+    // ==================== MEMBER OPERATIONS ====================
     assignAttendee,
     removeAttendee,
+
+    // ==================== POINTS OPERATIONS ====================
     updatePoints,
-    fetchActivities,
+
+    // ==================== UTILITIES ====================
     setSelectedGroup,
     clearError,
+    clearSelected, // ✅ Add this here
   } = useGroupStore();
 
+  // ==================== AUTO-FETCH ON MOUNT ====================
   useEffect(() => {
     if (autoFetch) {
       fetchGroups();
@@ -35,8 +57,13 @@ export const useGroup = (autoFetch: boolean = true) => {
     }
   }, [autoFetch]);
 
+  // ==================== REFETCH ====================
+  const refetch = (isActive?: boolean) => {
+    return fetchGroups(isActive);
+  };
+
   return {
-    // State
+    // ==================== STATE ====================
     groups,
     selectedGroup,
     activities,
@@ -46,18 +73,36 @@ export const useGroup = (autoFetch: boolean = true) => {
     isProcessing,
     error,
 
-    // Methods
+    // ==================== FETCH ACTIONS ====================
     fetchGroups,
-    create: createGroup,
-    autoAssign: autoAssignGroups,
+    fetchGroup,
     fetchStats,
-    assignAttendee,
-    removeAttendee,
-    updatePoints,
     fetchActivities,
+    refetch,
 
-    // Selection & Utilities
+    // ==================== CRUD ACTIONS ====================
+    create: createGroup,
+    update: updateGroup,
+    delete: deleteGroup,
+
+    // ==================== BULK OPERATIONS ====================
+    bulkCreate: bulkCreateGroups,
+    reset: resetGroups,
+    bulkReset: bulkResetGroups,
+
+    // ==================== AUTO-ASSIGN ====================
+    autoAssign: autoAssignGroups,
+
+    // ==================== MEMBER OPERATIONS ====================
+    assign: assignAttendee,
+    remove: removeAttendee,
+
+    // ==================== POINTS OPERATIONS ====================
+    updatePoints,
+
+    // ==================== UTILITIES ====================
     setSelectedGroup,
     clearError,
+    clearSelected, // ✅ Add this here
   };
 };

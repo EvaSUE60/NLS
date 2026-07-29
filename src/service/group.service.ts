@@ -23,9 +23,72 @@ export const groupService = {
     return apiClient.get<GroupsListResponse>(`/groups${queryString}`);
   },
 
+  // ==================== GET SINGLE GROUP ====================
+  getGroup: (id: string) =>
+    apiClient.get<GroupResponse>(`/groups/${id}`),
+
   // ==================== CREATE GROUP ====================
   createGroup: (data: CreateGroupData) =>
     apiClient.post<GroupResponse>('/groups', data),
+
+  // ==================== UPDATE GROUP ====================
+  updateGroup: (id: string, data: Partial<CreateGroupData>) =>
+    apiClient.put<GroupResponse>(`/groups/${id}`, data),
+
+  // ==================== DELETE GROUP ====================
+  deleteGroup: (id: string) =>
+    apiClient.delete<{ success: boolean; message: string }>(`/groups/${id}`),
+
+  // ==================== BULK CREATE GROUPS ====================
+  bulkCreateGroups: (data: {
+    count: number;
+    max_size?: number;
+    name_prefix?: string;
+    description?: string;
+    start_from?: number;
+  }) =>
+    apiClient.post<{
+      success: boolean;
+      message: string;
+      data: {
+        created: any[];
+        skipped: string[];
+        summary: {
+          total_requested: number;
+          created: number;
+          skipped: number;
+          total_groups: number;
+          total_capacity: number;
+          max_size: number;
+        };
+      };
+    }>('/groups/bulk', data),
+
+  // ==================== RESET GROUPS (Clear members) ====================
+  resetGroups: (data: { confirm: boolean }) =>
+    apiClient.post<{
+      success: boolean;
+      message: string;
+      data: {
+        before: any;
+        after: any;
+        changes: any;
+      };
+    }>('/groups/reset', data),
+
+  // ==================== BULK RESET GROUPS (Delete) ====================
+  bulkResetGroups: (data: { confirm: boolean; deleteAll?: boolean; groupIds?: string[] }) =>
+    apiClient.post<{
+      success: boolean;
+      message: string;
+      data: {
+        deleted_groups: string[];
+        deleted_count: number;
+        before: any;
+        after: any;
+        changes: any;
+      };
+    }>('/groups/bulk-reset', data),
 
   // ==================== AUTO-ASSIGN GROUPS ====================
   autoAssignGroups: (data: AutoAssignGroupsRequest = {}) =>
