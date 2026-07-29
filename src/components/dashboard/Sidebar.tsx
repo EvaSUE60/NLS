@@ -105,6 +105,13 @@ const menuItems: MenuItem[] = [
     category: 'management',
   },
   {
+    label: 'Sessions',
+    href: '/dashboard/sessions',
+    icon: Group,
+    roles: ['admin', 'super_admin'],
+    category: 'management',
+  },
+  {
     label: 'Reports',
     href: '/dashboard/reports',
     icon: BarChart3,
