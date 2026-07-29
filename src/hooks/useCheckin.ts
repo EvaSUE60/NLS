@@ -3,7 +3,12 @@
 
 import { useEffect } from 'react';
 import { useCheckInStore } from '@/src/store/checkin.store';
-import { AttendeeSearchResult } from '@/src/types/checkin.types';
+import { 
+  AttendeeSearchResult,
+  ArrivalCheckInResponse,
+  SessionCheckInResponse,
+  SeminarCheckInResponse,
+} from '@/src/types/checkin.types';
 
 export const useCheckin = () => {
   const {
@@ -36,7 +41,7 @@ export const useCheckin = () => {
   // ==================== AUTO-FETCH STATS ON MOUNT ====================
   useEffect(() => {
     fetchStats();
-  }, []);
+  }, [fetchStats]);
 
   // ==================== SEARCH BY NLS ID ====================
   const searchByNLS = (nlsId: string): Promise<AttendeeSearchResult[]> => {
@@ -59,11 +64,21 @@ export const useCheckin = () => {
   };
 
   // ==================== CHECK-IN SELECTED ATTENDEE ====================
-  const checkInSelected = (method: 'manual' | 'qr_code' = 'manual') => {
+  const checkInSelected = (method: 'manual' | 'qr_code' = 'manual'): Promise<ArrivalCheckInResponse> => {
     if (!selectedAttendee) {
       throw new Error('No attendee selected');
     }
     return checkInArrival(selectedAttendee._id, method);
+  };
+
+  // ==================== SESSION CHECK-IN ====================
+  const checkInToSession = (sessionId: string, nlsId: string, method: 'manual' | 'qr_code' = 'manual'): Promise<SessionCheckInResponse> => {
+    return checkInSession(sessionId, nlsId, method);
+  };
+
+  // ==================== SEMINAR CHECK-IN ====================
+  const checkInToSeminar = (seminarId: string, nlsId: string, method: 'manual' | 'qr_code' = 'manual'): Promise<SeminarCheckInResponse> => {
+    return checkInSeminar(seminarId, nlsId, method);
   };
 
   return {
@@ -92,10 +107,12 @@ export const useCheckin = () => {
 
     // ==================== SESSION CHECK-IN ====================
     checkInSession,
+    checkInToSession,
     fetchSessionAttendance,
 
     // ==================== SEMINAR CHECK-IN ====================
     checkInSeminar,
+    checkInToSeminar,
     fetchSeminarAttendance,
 
     // ==================== STATS ====================
