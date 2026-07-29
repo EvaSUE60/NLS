@@ -2,11 +2,12 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { motion } from "framer-motion";
+import { AlertCircle, Loader2, Lock, Mail, Sparkles, ArrowRight } from "lucide-react";
 
 import apiClient from "@/src/lib/api/client";
-import { Button } from "@/src/components/ui/Button";
-import { Input } from "@/src/components/ui/Input";
-import Link from "next/link";
+
 interface LoginResponse {
   success: boolean;
   message: string;
@@ -71,123 +72,118 @@ export default function LoginPage() {
   };
 
   return (
-    
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#135574] px-5 text-white">
-
-      {/* Background */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-32 top-10 h-[420px] w-[420px] rounded-full bg-sky-400/15 blur-[130px]" />
-
-        <div className="absolute -right-32 bottom-10 h-[400px] w-[400px] rounded-full bg-[#ed2529]/15 blur-[130px]" />
-
-        <div className="absolute left-1/2 top-1/2 h-[500px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-300/10 blur-[150px]" />
+    <main className="relative flex min-h-screen items-center justify-center bg-[#ECF4EE] px-4 py-8 text-[#0C0D0D]">
+      {/* Ambient background blur circles */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute left-[15%] top-10 h-[300px] w-[300px] rounded-full bg-white/70 blur-3xl" />
+        <div className="absolute bottom-10 right-[15%] h-[300px] w-[300px] rounded-full bg-emerald-100/50 blur-3xl" />
       </div>
-{/* Background effects */}
-<div className="pointer-events-none absolute inset-0 overflow-hidden">
 
-  {/* Glow */}
-  <div className="absolute -left-32 top-10 h-[420px] w-[420px] rounded-full bg-sky-400/15 blur-[130px]" />
-
-  <div className="absolute -right-32 bottom-10 h-[400px] w-[400px] rounded-full bg-[#ed2529]/15 blur-[130px]" />
-
-  {/* Particles */}
-  <span className="absolute left-[10%] top-[18%] h-2 w-2 animate-pulse rounded-full bg-[#ff5b68]" />
-
-  <span className="absolute left-[22%] top-[65%] h-1.5 w-1.5 animate-pulse rounded-full bg-sky-300" />
-
-  <span className="absolute right-[15%] top-[25%] h-1.5 w-1.5 animate-pulse rounded-full bg-[#ff5b68]" />
-
-  <span className="absolute right-[20%] bottom-[18%] h-2 w-2 animate-pulse rounded-full bg-sky-300" />
-
-  <span className="absolute left-[48%] top-[10%] h-1 w-1 animate-pulse rounded-full bg-white/60" />
-
-  <span className="absolute right-[40%] bottom-[12%] h-1 w-1 animate-pulse rounded-full bg-[#ff5b68]" />
-
-</div>
       <div className="relative z-10 w-full max-w-md">
-        {/* Glass card */}
-        <div className="rounded-2xl border border-white/15 bg-white/10 p-8 shadow-2xl backdrop-blur-xl sm:p-10">
-
-          {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25 }}
+          className="rounded-3xl border border-[#d2e5d7]/80 bg-white/90 p-6 sm:p-8 shadow-sm backdrop-blur-md"
+        >
+          {/* Header Badge & Titles */}
           <div className="text-center">
-           <h1 className="mb-6 text-center text-4xl font-black tracking-tight sm:text-5xl">
-  <span className="text-white">NLS </span>
-  <span className="text-[#ff5b68]">2026</span>
-</h1>
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase bg-[#ECF4EE] border border-[#d2e5d7] text-emerald-900 mb-3">
+              <Sparkles className="w-3 h-3 text-emerald-700" /> NLS 2026 Portal
+            </span>
 
-            <h1 className="text-3xl font-black tracking-tight">
+            <h1 className="text-2xl font-black tracking-tight text-[#0C0D0D]">
               Welcome Back
             </h1>
 
-            <p className="mt-2 text-sm text-sky-100/70">
-              Staff & Admin Login
+            <p className="mt-1 text-xs font-semibold text-[#0C0D0D]/60">
+              Staff & Admin Authentication
             </p>
           </div>
 
-          <form
-            onSubmit={handleSubmit}
-            className="mt-8 space-y-5"
-          >
-            <Input
-              id="email"
-              type="email"
-              label="Email Address"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                setError("");
-              }}
-              autoComplete="email"
-            />
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-xs font-bold text-[#0C0D0D] mb-1.5 flex items-center gap-1.5">
+                <Mail className="w-3.5 h-3.5 text-emerald-700" /> Email Address
+              </label>
+              <input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setError("");
+                }}
+                autoComplete="email"
+                className="w-full px-3.5 py-2.5 bg-white border border-[#d2e5d7] rounded-xl text-[#0C0D0D] placeholder-[#0C0D0D]/40 focus:outline-none focus:ring-1 focus:ring-emerald-600 focus:border-emerald-600 text-xs font-medium transition-all"
+              />
+            </div>
 
-            <Input
-              id="password"
-              type="password"
-              label="Password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                setError("");
-              }}
-              autoComplete="current-password"
-            />
+            <div>
+              <label htmlFor="password" className="block text-xs font-bold text-[#0C0D0D] mb-1.5 flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 text-emerald-700" /> Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setError("");
+                }}
+                autoComplete="current-password"
+                className="w-full px-3.5 py-2.5 bg-white border border-[#d2e5d7] rounded-xl text-[#0C0D0D] placeholder-[#0C0D0D]/40 focus:outline-none focus:ring-1 focus:ring-emerald-600 focus:border-emerald-600 text-xs font-medium transition-all"
+              />
+            </div>
 
             {error && (
-              <div className="rounded-xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">
-                {error}
+              <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl p-3 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                <span>{error}</span>
               </div>
             )}
 
-            <Button
+            <button
               type="submit"
-              variant="danger"
-              size="lg"
-              isLoading={isLoading}
-              className="w-full bg-[#ed2529] text-white hover:bg-[#ff3438]"
+              disabled={isLoading}
+              className="w-full flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl py-2.5 px-4 text-xs font-bold transition-all disabled:opacity-50 shadow-2xs"
             >
-              Login →
-            </Button>
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Signing in...</span>
+                </>
+              ) : (
+                <>
+                  <span>Login</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
           </form>
-<div className="mt-7 text-center">
-  <p className="text-sm text-slate-400">
-    Don&apos;t have an account?
-  </p>
 
-  <Link
-    href="/register"
-   className="mt-2 inline-block font-bold text-[#ff5b68] transition hover:text-red-300"
-  >
-    Create Account →
-  </Link>
-</div>
-          <div className="mt-7 border-t border-white/10 pt-6 text-center">
-            <p className="text-xs text-sky-200/60">
+          {/* Account Creation Link */}
+          <div className="mt-5 text-center pt-4 border-t border-[#ECF4EE]">
+            <p className="text-xs text-[#0C0D0D]/60 font-semibold">
+              Don&apos;t have an account?{" "}
+              <Link
+                href="/register"
+                className="font-bold text-emerald-800 hover:text-emerald-900 hover:underline transition"
+              >
+                Create Account
+              </Link>
+            </p>
+          </div>
+
+          {/* Footer Note */}
+          <div className="mt-4 text-center">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[#0C0D0D]/40">
               Staff and administrators only
             </p>
           </div>
-        </div>
+        </motion.div>
       </div>
     </main>
   );

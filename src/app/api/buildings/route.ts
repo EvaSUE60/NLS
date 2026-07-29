@@ -186,6 +186,9 @@ export async function POST(request: NextRequest) {
 }
 
 // GET: List all buildings
+// src/app/api/buildings/route.ts - Updated GET handler
+
+// GET: List all buildings
 export async function GET(request: NextRequest) {
   try {
     const authError = await requireRole(["super_admin", "admin", "staff"])(request);
@@ -197,12 +200,14 @@ export async function GET(request: NextRequest) {
 
     const buildingsWithStats = await Promise.all(
       buildings.map(async (building) => {
+        // ✅ Always calculate stats from rooms
         const rooms = await Room.find({ building_id: building._id, is_active: true });
         const roomCount = rooms.length;
         const totalBeds = rooms.reduce((sum, room) => sum + room.capacity, 0);
-        const occupiedRooms = rooms.filter((r) => r.is_full || r.current_occupancy > 0).length;
+        const occupiedRooms = rooms.filter((r) => (r.current_occupancy || 0) > 0).length;
         const totalOccupants = rooms.reduce((sum, room) => sum + (room.current_occupancy || 0), 0);
         
+        // ✅ Use calculated values instead of stored ones
         return {
           ...building.toObject(),
           room_count: roomCount,

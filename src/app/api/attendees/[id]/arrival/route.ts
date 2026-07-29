@@ -11,26 +11,99 @@ import { generateAssignmentId } from "@/src/lib/generateId";
 import mongoose from "mongoose";
 import { Types } from "mongoose";
 
-// Helper function to update building stats
+// ==================== HELPER: Update Building Stats ====================
 async function updateBuildingStats(buildingId: Types.ObjectId) {
   try {
+    console.log(`📊 Updating building stats for building ID: ${buildingId}`);
+    
+    // Get all rooms for this building
     const rooms = await Room.find({ building_id: buildingId, is_active: true });
+    
+    // Calculate stats from rooms
     const totalRooms = rooms.length;
     const totalBeds = rooms.reduce((sum, room) => sum + room.capacity, 0);
     const totalOccupants = rooms.reduce((sum, room) => sum + (room.current_occupancy || 0), 0);
-    const occupiedRooms = rooms.filter(room => room.current_occupancy > 0).length;
-
-    await Building.findByIdAndUpdate(buildingId, {
-      total_rooms: totalRooms,
-      capacity: totalBeds,
-      current_occupancy: totalOccupants,
-      occupied_rooms: occupiedRooms,
+    const occupiedRooms = rooms.filter(room => (room.current_occupancy || 0) > 0).length;
+    
+    console.log(`📊 Calculated stats:`, {
+      totalRooms,
+      totalBeds,
+      totalOccupants,
+      occupiedRooms,
     });
+
+    // Update building with calculated stats
+    const updatedBuilding = await Building.findByIdAndUpdate(
+      buildingId,
+      {
+        total_rooms: totalRooms,
+        capacity: totalBeds,
+        current_occupancy: totalOccupants,
+        occupied_rooms: occupiedRooms,
+      },
+      { new: true }
+    );
+
+    console.log(`✅ Building stats updated:`, {
+      name: updatedBuilding?.name,
+      current_occupancy: updatedBuilding?.current_occupancy,
+      occupied_rooms: updatedBuilding?.occupied_rooms,
+      capacity: updatedBuilding?.capacity,
+    });
+
+    return updatedBuilding;
   } catch (error) {
-    console.error("Failed to update building stats:", error);
+    console.error("❌ Failed to update building stats:", error);
+    throw error;
   }
 }
 
+// ==================== HELPER: Update Room Stats ====================
+async function updateRoomStats(roomId: Types.ObjectId) {
+  try {
+    console.log(`📊 Updating room stats for room ID: ${roomId}`);
+    
+    // Get all active assignments for this room
+    const assignments = await DormAssignment.find({
+      room_id: roomId,
+      status: "active",
+    });
+
+    const room = await Room.findById(roomId);
+    if (!room) {
+      console.log(`❌ Room not found: ${roomId}`);
+      return null;
+    }
+
+    // Calculate occupancy
+    const currentOccupancy = assignments.length;
+    const isFull = currentOccupancy >= room.capacity;
+    const checkInStatus = currentOccupancy === 0 ? "empty" :
+                         currentOccupancy >= room.capacity ? "full" : "partial";
+
+    // Update room
+    room.current_occupancy = currentOccupancy;
+    room.is_full = isFull;
+    room.check_in_status = checkInStatus;
+    room.occupants = assignments.map(a => a.attendee_id);
+    
+    await room.save();
+
+    console.log(`✅ Room stats updated:`, {
+      room_number: room.room_number,
+      current_occupancy: room.current_occupancy,
+      is_full: room.is_full,
+      check_in_status: room.check_in_status,
+    });
+
+    return room;
+  } catch (error) {
+    console.error("❌ Failed to update room stats:", error);
+    throw error;
+  }
+}
+
+// ==================== MAIN POST HANDLER ====================
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -48,7 +121,8 @@ export async function POST(
 
     console.log(`🔍 Checking in attendee: ${id}`);
 
-    // ✅ Support both MongoDB _id and unique_id (NLS-2026-XXX)
+    // ==================== FIND ATTENDEE ====================
+    // Support both MongoDB _id and unique_id (NLS-2026-XXX)
     let attendee = null;
     
     // Check if it's a MongoDB ObjectId
@@ -75,7 +149,7 @@ export async function POST(
 
     console.log(`👤 Found attendee: ${attendee.first_name} ${attendee.last_name} (${attendee.unique_id})`);
 
-    // Check if already arrived
+    // ==================== CHECK IF ALREADY ARRIVED ====================
     if (attendee.arrived) {
       console.log(`⚠️ Already arrived: ${attendee.first_name} ${attendee.last_name}`);
       return NextResponse.json({
@@ -89,7 +163,7 @@ export async function POST(
       }, { status: 400 });
     }
 
-    // Get the staff user
+    // ==================== GET STAFF USER ====================
     const staffUser = await User.findOne({ user_id: user.user_id });
     if (!staffUser) {
       console.log(`❌ Staff user not found: ${user.user_id}`);
@@ -216,23 +290,14 @@ export async function POST(
 
       room = selectedRoom;
 
-      // Update room stats
-      const roomAssignments = await DormAssignment.find({
-        room_id: room._id,
-        status: "active",
-      });
+      // ✅ UPDATE ROOM STATS
+      await updateRoomStats(room._id);
       
-      room.current_occupancy = roomAssignments.length;
-      room.is_full = roomAssignments.length >= room.capacity;
-      room.check_in_status = roomAssignments.length === 0 ? "empty" :
-                            roomAssignments.length >= room.capacity ? "full" : "partial";
-      await room.save();
-
-      // Update building stats
+      // ✅ UPDATE BUILDING STATS
       await updateBuildingStats(room.building_id);
     }
 
-    // ✅ Update attendee - ARRIVAL CHECK-IN with assignment
+    // ==================== UPDATE ATTENDEE ====================
     attendee.arrived = true;
     attendee.arrival_time = new Date();
     attendee.arrival_checked_by = staffUser._id;
@@ -257,7 +322,7 @@ export async function POST(
     // Get the staff name for response
     const staffName = staffUser.name || staffUser.email;
 
-    // ✅ RELOAD the attendee to get all fields
+    // ==================== RELOAD ATTENDEE ====================
     const updatedAttendee = await Attendee.findById(attendee._id).lean();
 
     if (!updatedAttendee) {
@@ -271,7 +336,7 @@ export async function POST(
       );
     }
 
-    // ✅ Build response with all fields from the model
+    // ==================== RESPONSE ====================
     return NextResponse.json({
       success: true,
       message: `${attendee.first_name} ${attendee.last_name} checked in and assigned to ${room?.room_number || 'room'}`,
@@ -282,13 +347,8 @@ export async function POST(
           first_name: updatedAttendee.first_name,
           last_name: updatedAttendee.last_name,
           full_name: `${updatedAttendee.first_name} ${updatedAttendee.last_name}`,
-          phone: updatedAttendee.phone,
-          email: updatedAttendee.email,
-          gender: updatedAttendee.gender,
           region: updatedAttendee.region,
-          local_church: updatedAttendee.local_church,
-          campus: updatedAttendee.campus,
-          payment_status: updatedAttendee.payment_status,
+          gender: updatedAttendee.gender,
           arrived: updatedAttendee.arrived,
           arrival_time: updatedAttendee.arrival_time,
           arrival_method: updatedAttendee.arrival_method,

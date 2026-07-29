@@ -8,6 +8,8 @@ import {
   SessionAttendance,
   SeminarAttendance,
   ArrivalCheckInResponse,
+  SessionCheckInResponse,
+  SeminarCheckInResponse,
 } from '@/src/types/checkin.types';
 import { checkinService } from '@/src/service/checkin.service';
 
@@ -21,7 +23,7 @@ interface CheckInState {
   sessionAttendance: SessionAttendance[];
   seminarAttendance: SeminarAttendance[];
   isCheckingIn: boolean;
-  lastCheckInResult: ArrivalCheckInResponse | null;
+  lastCheckInResult: ArrivalCheckInResponse | SessionCheckInResponse | SeminarCheckInResponse | null;
 
   // ==================== ARRIVAL CHECK-IN ACTIONS ====================
   searchAttendee: (query: string, by?: 'unique_id' | 'name' | 'email' | 'phone') => Promise<AttendeeSearchResult[]>;
@@ -30,11 +32,11 @@ interface CheckInState {
   bulkCheckIn: (attendeeIds: string[], method?: 'manual' | 'bulk') => Promise<void>;
 
   // ==================== SESSION CHECK-IN ACTIONS ====================
-  checkInSession: (sessionId: string, nlsId: string, method?: 'manual' | 'qr_code') => Promise<void>;
+  checkInSession: (sessionId: string, nlsId: string, method?: 'manual' | 'qr_code') => Promise<SessionCheckInResponse>;
   fetchSessionAttendance: (attendeeId: string) => Promise<void>;
 
   // ==================== SEMINAR CHECK-IN ACTIONS ====================
-  checkInSeminar: (seminarId: string, nlsId: string, method?: 'manual' | 'qr_code') => Promise<void>;
+  checkInSeminar: (seminarId: string, nlsId: string, method?: 'manual' | 'qr_code') => Promise<SeminarCheckInResponse>;
   fetchSeminarAttendance: (attendeeId: string) => Promise<void>;
 
   // ==================== STATS ACTIONS ====================
@@ -100,7 +102,6 @@ export const useCheckInStore = create<CheckInState>((set, get) => ({
       // Refresh selected attendee if it matches
       const { selectedAttendee, searchResults } = get();
       if (selectedAttendee && selectedAttendee._id === attendeeId) {
-        // Update the selected attendee with the new data
         const updatedAttendee = {
           ...selectedAttendee,
           arrived: response.data.data.attendee.arrived,
@@ -110,7 +111,6 @@ export const useCheckInStore = create<CheckInState>((set, get) => ({
         };
         set({ selectedAttendee: updatedAttendee });
         
-        // Also update in searchResults
         const updatedResults = searchResults.map(a => 
           a._id === attendeeId ? updatedAttendee : a
         );
@@ -140,7 +140,6 @@ export const useCheckInStore = create<CheckInState>((set, get) => ({
         isCheckingIn: false,
       });
       
-      // Refresh stats
       await get().fetchStats();
     } catch (error: any) {
       set({
@@ -157,7 +156,7 @@ export const useCheckInStore = create<CheckInState>((set, get) => ({
     try {
       const response = await checkinService.checkInSession({ sessionId, nls_id: nlsId, method });
       set({
-        lastCheckInResult: response.data as any,
+        lastCheckInResult: response.data,
         isCheckingIn: false,
       });
       
@@ -166,6 +165,8 @@ export const useCheckInStore = create<CheckInState>((set, get) => ({
       if (selectedAttendee) {
         await get().fetchSessionAttendance(selectedAttendee._id);
       }
+      
+      return response.data;
     } catch (error: any) {
       set({
         error: error.response?.data?.message || 'Failed to check in to session',
@@ -181,7 +182,7 @@ export const useCheckInStore = create<CheckInState>((set, get) => ({
     try {
       const response = await checkinService.checkInSeminar({ seminarId, nls_id: nlsId, method });
       set({
-        lastCheckInResult: response.data as any,
+        lastCheckInResult: response.data,
         isCheckingIn: false,
       });
       
@@ -190,6 +191,8 @@ export const useCheckInStore = create<CheckInState>((set, get) => ({
       if (selectedAttendee) {
         await get().fetchSeminarAttendance(selectedAttendee._id);
       }
+      
+      return response.data;
     } catch (error: any) {
       set({
         error: error.response?.data?.message || 'Failed to check in to seminar',
@@ -258,7 +261,7 @@ export const useCheckInStore = create<CheckInState>((set, get) => ({
   reset: () => {
     set({
       ...initialState,
-      stats: get().stats, // Keep stats
+      stats: get().stats,
     });
   },
 }));
