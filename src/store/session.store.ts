@@ -32,6 +32,7 @@ interface SessionState {
   checkInAttendance: (sessionId: string, nls_id: string, method?: 'manual' | 'qr_code') => Promise<SessionCheckInResponse['data']>;
 
   setSelectedSession: (session: Session | null) => void;
+  clearSelected: () => void;
   clearError: () => void;
   resetFilters: () => void;
 }
@@ -55,7 +56,24 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   fetchSessions: async (filters) => {
     set({ isLoading: true, error: null });
     try {
-      const newFilters = { ...get().filters, ...filters };
+      // ✅ Clean invalid filters with proper type checking
+      const cleanFilters: SessionFilters = { ...filters };
+      
+      // ✅ Only check if day exists and is a valid number
+      if (cleanFilters.day !== undefined) {
+        // If day is a string, try to parse it
+        if (typeof cleanFilters.day === 'string') {
+          const parsed = parseInt(cleanFilters.day);
+          if (isNaN(parsed) || parsed < 1 || parsed > 4) {
+            delete cleanFilters.day;
+          } else {
+            cleanFilters.day = parsed;
+          }
+        }
+        // If day is a number, keep it
+      }
+      
+      const newFilters = { ...get().filters, ...cleanFilters };
       set({ filters: newFilters });
 
       const response = await sessionService.getSessions(newFilters);
@@ -73,6 +91,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   // ==================== FETCH SINGLE SESSION ====================
   fetchSession: async (id) => {
+    // ✅ Guard against invalid IDs
+    if (!id || id === 'create' || id === 'undefined' || id === 'null' || id === '') {
+      set({ error: 'Invalid session ID', isLoading: false });
+      return;
+    }
+
     set({ isLoading: true, error: null });
     try {
       const response = await sessionService.getSession(id);
@@ -192,6 +216,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   // ==================== UTILITIES ====================
   setSelectedSession: (session) => set({ selectedSession: session }),
+  clearSelected: () => set({ selectedSession: null }),
   clearError: () => set({ error: null }),
   resetFilters: () => {
     set({ filters: initialFilters });

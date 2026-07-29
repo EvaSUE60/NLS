@@ -2,10 +2,12 @@
 'use client';
 
 import { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { useSessionStore } from '@/src/store/session.store';
 import { SessionFilters, CreateSessionData, UpdateSessionData, GenerateSessionsData } from '@/src/types/session.types';
 
 export const useSession = (autoFetch: boolean = true) => {
+  const pathname = usePathname();
   const {
     sessions,
     selectedSession,
@@ -23,15 +25,17 @@ export const useSession = (autoFetch: boolean = true) => {
     generateSessions,
     checkInAttendance,
     setSelectedSession,
+    clearSelected,
     clearError,
     resetFilters,
   } = useSessionStore();
 
+  // ✅ Only auto-fetch if not on create page and autoFetch is true
   useEffect(() => {
-    if (autoFetch) {
+    if (autoFetch && !pathname?.includes('/sessions/create') && !pathname?.includes('/sessions/generate')) {
       fetchSessions();
     }
-  }, [autoFetch]);
+  }, [autoFetch, pathname]);
 
   const filterByDay = (day: number) => {
     return fetchSessions({ day });
@@ -39,6 +43,15 @@ export const useSession = (autoFetch: boolean = true) => {
 
   const filterByType = (type: 'morning' | 'afternoon') => {
     return fetchSessions({ type });
+  };
+
+  // ✅ Safe fetch with guards
+  const safeFetchSession = (id: string) => {
+    if (!id || id === 'create' || id === 'undefined' || id === 'null') {
+      console.warn('Invalid session ID provided:', id);
+      return;
+    }
+    return fetchSession(id);
   };
 
   return {
@@ -53,7 +66,7 @@ export const useSession = (autoFetch: boolean = true) => {
 
     // Methods
     fetchSessions,
-    fetchSession,
+    fetchSession: safeFetchSession,
     create: createSession,
     update: updateSession,
     delete: deleteSession,
@@ -64,6 +77,7 @@ export const useSession = (autoFetch: boolean = true) => {
     filterByDay,
     filterByType,
     setSelectedSession,
+    clearSelected,
     clearError,
     resetFilters,
   };
