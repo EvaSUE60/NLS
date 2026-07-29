@@ -57,6 +57,101 @@ export interface CreateGroupData {
   co_leader_id?: string;
 }
 
+export interface BulkCreateGroupData {
+  count: number;
+  max_size?: number;
+  name_prefix?: string;
+  description?: string;
+  start_from?: number;
+}
+
+export interface BulkCreateGroupResponse {
+  success: boolean;
+  message: string;
+  data: {
+    created: Array<{
+      _id: string;
+      name: string;
+      group_code: string;
+      max_size: number;
+      created_at: string;
+    }>;
+    skipped: string[];
+    summary: {
+      total_requested: number;
+      created: number;
+      skipped: number;
+      total_groups: number;
+      total_capacity: number;
+      max_size: number;
+    };
+  };
+}
+
+export interface ResetGroupsRequest {
+  confirm: boolean;
+}
+
+export interface ResetGroupsResponse {
+  success: boolean;
+  message: string;
+  data: {
+    before: {
+      totalAttendees: number;
+      assignedAttendees: number;
+      unassignedAttendees: number;
+      totalGroups: number;
+      groupsWithMembers: number;
+      totalMembers: number;
+    };
+    after: {
+      totalAttendees: number;
+      assignedAttendees: number;
+      unassignedAttendees: number;
+      totalGroups: number;
+      groupsWithMembers: number;
+      totalMembers: number;
+    };
+    changes: {
+      attendees_reset: number;
+      groups_cleared: number;
+      members_removed: number;
+    };
+  };
+}
+
+export interface BulkResetGroupsRequest {
+  confirm: boolean;
+  deleteAll?: boolean;
+  groupIds?: string[];
+}
+
+export interface BulkResetGroupsResponse {
+  success: boolean;
+  message: string;
+  data: {
+    deleted_groups: string[];
+    deleted_count: number;
+    before: {
+      totalGroups: number;
+      groupsToDelete: number;
+      totalAttendees: number;
+      assignedAttendees: number;
+      totalMembers: number;
+    };
+    after: {
+      totalGroups: number;
+      totalAttendees: number;
+      assignedAttendees: number;
+    };
+    changes: {
+      groups_deleted: number;
+      attendees_reset: number;
+      members_removed: number;
+    };
+  };
+}
+
 export interface AutoAssignGroupsRequest {
   groupCount?: number;
   maxSize?: number;
@@ -73,15 +168,33 @@ export interface GroupStats {
   summary: {
     total_groups: number;
     total_members: number;
+    total_capacity: number;
     total_points: number;
+    total_earned: number;
+    total_lost: number;
     average_points: number;
+    average_size: number;
+    occupancy_rate: number;
+    full_groups: number;
+    empty_groups: number;
+    partial_groups: number;
   };
   region_distribution: Record<string, number>;
+  size_distribution: Record<string, number>;
+  points_distribution: {
+    min: number;
+    max: number;
+    average: number;
+  };
   top_groups: Array<{
+    _id: string;
     name: string;
     group_code: string;
     points: number;
     member_count: number;
+    max_size: number;
+    total_earned: number;
+    total_lost: number;
   }>;
   groups: Array<{
     _id: string;
@@ -90,7 +203,11 @@ export interface GroupStats {
     member_count: number;
     max_size: number;
     points: number;
+    total_earned: number;
+    total_lost: number;
     is_full: boolean;
+    is_empty: boolean;
+    has_leader: boolean;
   }>;
 }
 
@@ -210,4 +327,13 @@ export interface GroupsListResponse {
 export interface GroupResponse {
   success: boolean;
   data: Group;
+}
+
+export interface UpdateGroupData {
+  name?: string;
+  description?: string;
+  max_size?: number;
+  leader_id?: string;
+  co_leader_id?: string;
+  is_active?: boolean;
 }

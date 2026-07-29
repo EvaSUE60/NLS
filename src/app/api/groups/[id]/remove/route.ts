@@ -6,13 +6,13 @@ import Attendee from "@/src/models/Attendee";
 import { requireRole } from "@/src/lib/auth/middleware";
 import mongoose from "mongoose";
 
-// ✅ Define RegionDistribution type
+// ✅ Define RegionDistribution type locally
 interface IRegionDistribution {
   region: string;
   count: number;
 }
 
-// POST - Remove attendee from group by NLS ID
+// POST - Remove attendee from group by NLS ID or attendee ID
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -25,11 +25,16 @@ export async function POST(
 
     const { id } = await params;
     const body = await request.json();
-    const { nls_id } = body;
+    // ✅ Support both nls_id and attendee_id
+    const { nls_id, attendee_id } = body;
 
-    if (!nls_id) {
+    if (!nls_id && !attendee_id) {
       return NextResponse.json(
-        { success: false, error: "NLS ID is required (e.g., NLS-2026-002)" },
+        { 
+          success: false, 
+          error: "Missing identifier",
+          message: "Either nls_id or attendee_id is required" 
+        },
         { status: 400 }
       );
     }
@@ -50,14 +55,20 @@ export async function POST(
       );
     }
 
-    // Find attendee by NLS ID
-    const attendee = await Attendee.findOne({ unique_id: nls_id });
+    // Find attendee by NLS ID or attendee ID
+    let attendee = null;
+    if (nls_id) {
+      attendee = await Attendee.findOne({ unique_id: nls_id });
+    } else if (attendee_id) {
+      attendee = await Attendee.findById(attendee_id);
+    }
+
     if (!attendee) {
       return NextResponse.json(
         { 
           success: false, 
           error: "Attendee not found",
-          message: `No attendee found with NLS ID: ${nls_id}`
+          message: `No attendee found with provided identifier`
         },
         { status: 404 }
       );
@@ -65,7 +76,7 @@ export async function POST(
 
     // Find member in group
     const memberIndex = group.members.findIndex(
-      (m: IGroupMember) => m.unique_id === attendee.unique_id
+      (m: IGroupMember) => m.attendeeId.toString() === attendee._id.toString()
     );
 
     if (memberIndex === -1) {
@@ -83,7 +94,7 @@ export async function POST(
     const removedMember = group.members[memberIndex];
     group.members.splice(memberIndex, 1);
 
-    // ✅ Update region distribution - with proper typing
+    // ✅ Update region distribution with local interface
     const regionDistribution: IRegionDistribution[] = group.region_distribution || [];
     const regionEntry = regionDistribution.find(
       (r: IRegionDistribution) => r.region === removedMember.region
@@ -111,12 +122,16 @@ export async function POST(
         group: {
           _id: group._id,
           name: group.name,
+          group_code: group.group_code,
           member_count: group.members.length,
+          max_size: group.max_size,
+          current_size: group.current_size,
         },
         attendee: {
           _id: attendee._id,
           unique_id: attendee.unique_id,
           full_name: `${attendee.first_name} ${attendee.last_name}`,
+          region: attendee.region,
         },
       },
     });
