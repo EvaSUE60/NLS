@@ -10,8 +10,14 @@ import { z } from "zod";
 // ✅ Helper: Validate time format
 const timeRegex = /^([0-9]{2}):([0-9]{2})$/;
 
-// ✅ Helper: Validate time order
-function validateTimeOrder(start: string, end: string, onTimeStart: string, onTimeEnd: string, lateEnd: string) {
+// ✅ Helper: Validate logical time sequence
+function validateTimeOrder(
+  start: string, 
+  end: string, 
+  onTimeStart: string, 
+  onTimeEnd: string, 
+  lateEnd: string
+): string | null {
   const toMinutes = (time: string) => {
     const [h, m] = time.split(':').map(Number);
     return h * 60 + m;
@@ -23,6 +29,7 @@ function validateTimeOrder(start: string, end: string, onTimeStart: string, onTi
   const onTimeEndMin = toMinutes(onTimeEnd);
   const lateEndMin = toMinutes(lateEnd);
 
+  // Logical timeline: onTimeStart <= onTimeEnd < lateEnd <= end
   if (onTimeStartMin >= onTimeEndMin) {
     return "On-time start must be before on-time end";
   }
@@ -30,11 +37,15 @@ function validateTimeOrder(start: string, end: string, onTimeStart: string, onTi
     return "On-time end must be before late end";
   }
   if (lateEndMin > endMin) {
-    return "Late end must be before session end time";
+    return "Late end cannot extend beyond session end time";
   }
   if (onTimeStartMin > startMin) {
-    return "On-time start should be before session start time";
+    return "On-time check-in window cannot start after the session start time";
   }
+  if (startMin >= endMin) {
+    return "Session start time must be before session end time";
+  }
+  
   return null;
 }
 
@@ -88,7 +99,7 @@ export async function POST(request: NextRequest) {
       building 
     } = validationResult.data;
 
-    // ✅ Validate time order
+    // ✅ Validate time sequence
     const timeError = validateTimeOrder(start_time, end_time, on_time_start, on_time_end, late_end);
     if (timeError) {
       return NextResponse.json(
@@ -111,11 +122,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if session already exists for this day and type
-    const existingSession = await Session.findOne({
-      day,
-      type,
-    });
-
+    const existingSession = await Session.findOne({ day, type });
     if (existingSession) {
       return NextResponse.json(
         {
@@ -127,13 +134,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ Create session with Ethiopia time (EAT)
+    // ✅ Ensure date is stored cleanly at midnight UTC
+    const parsedDate = new Date(date);
+
     const session = await Session.create({
       session_id: await generateSessionId(),
       name,
       type,
       day,
-      date: new Date(date),
+      date: parsedDate,
       start_time,
       end_time,
       on_time_start,
@@ -177,7 +186,6 @@ export async function GET(request: NextRequest) {
 
     const query: any = {};
 
-    // ✅ Ignore 'create' and invalid values
     if (day && day !== 'create' && day !== 'undefined' && day !== 'null' && !isNaN(parseInt(day))) {
       query.day = parseInt(day);
     }
@@ -190,10 +198,8 @@ export async function GET(request: NextRequest) {
       .sort({ day: 1, type: 1 })
       .lean();
 
-    // ✅ Format response with time info
     const formattedSessions = sessions.map(session => ({
       ...session,
-      // Add useful time labels for frontend
       timeInfo: {
         session: `${session.start_time} - ${session.end_time}`,
         onTime: `${session.on_time_start} - ${session.on_time_end}`,

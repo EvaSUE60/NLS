@@ -1,4 +1,4 @@
-// src/app/api/sessions/[id]/attendance/route.ts - FIXED VERSION
+// src/app/api/sessions/[id]/attendance/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/src/lib/mongodb";
@@ -7,43 +7,51 @@ import Attendee from "@/src/models/Attendee";
 import User from "@/src/models/User";
 import Group from "@/src/models/Group";
 import { requireRole } from "@/src/lib/auth/middleware";
-import mongoose from "mongoose";
 import { generateId } from "@/src/lib/generateId";
 
-// ✅ Helper: Get current UTC time
+// Default target timezone for the event site
+const EVENT_TIMEZONE = "Africa/Addis_Ababa";
+
+// ✅ Helper: Get current UTC Date
 function getCurrentUTC(): Date {
   return new Date();
 }
 
-// ✅ Helper: Get UTC time string (HH:MM)
-function getUTCString(date: Date): string {
-  const hours = String(date.getUTCHours()).padStart(2, '0');
-  const minutes = String(date.getUTCMinutes()).padStart(2, '0');
-  return `${hours}:${minutes}`;
+// ✅ Helper: Convert UTC Date to local HH:MM string in event timezone
+function getLocalTimeString(date: Date, timeZone: string = EVENT_TIMEZONE): string {
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: timeZone,
+  });
+  return formatter.format(date);
 }
 
-// ✅ Helper: Calculate attendance status using UTC
-function calculateAttendanceStatusUTC(
+// ✅ Helper: Calculate attendance status using local event timezone
+function calculateAttendanceStatusLocal(
   checkInUTC: Date,
-  session: any
+  session: any,
+  timeZone: string = EVENT_TIMEZONE
 ): "on_time" | "late" | "absent" {
-  const timeStr = getUTCString(checkInUTC);
+  // Extract local HH:MM string from UTC check-in timestamp
+  const localTimeStr = getLocalTimeString(checkInUTC, timeZone);
   
   const toMinutes = (time: string) => {
     const [h, m] = time.split(':').map(Number);
     return h * 60 + m;
   };
   
-  const checkInMinutes = toMinutes(timeStr);
+  const checkInMinutes = toMinutes(localTimeStr);
   const onTimeStartMin = toMinutes(session.on_time_start);
   const onTimeEndMin = toMinutes(session.on_time_end);
   const lateEndMin = toMinutes(session.late_end);
   
-  console.log(`📍 Time Debug (UTC):`);
-  console.log(`   Check-in time: ${checkInUTC.toISOString()}`);
-  console.log(`   Check-in time (HH:MM UTC): ${timeStr}`);
-  console.log(`   Session on-time (UTC): ${session.on_time_start} - ${session.on_time_end}`);
-  console.log(`   Session late (UTC): ${session.on_time_end} - ${session.late_end}`);
+  console.log(`📍 Time Debug (${timeZone}):`);
+  console.log(`   Check-in raw (UTC): ${checkInUTC.toISOString()}`);
+  console.log(`   Check-in local (${timeZone} HH:MM): ${localTimeStr}`);
+  console.log(`   Session on-time range: ${session.on_time_start} - ${session.on_time_end}`);
+  console.log(`   Session late range: ${session.on_time_end} - ${session.late_end}`);
   
   let status: "on_time" | "late" | "absent";
   if (checkInMinutes >= onTimeStartMin && checkInMinutes <= onTimeEndMin) {
@@ -54,7 +62,7 @@ function calculateAttendanceStatusUTC(
     status = "absent";
   }
   
-  console.log(`   Status: ${status}`);
+  console.log(`   Calculated Status: ${status}`);
   return status;
 }
 
@@ -170,21 +178,21 @@ export async function POST(
     const user = (request as any).user;
     const staffUser = await User.findOne({ user_id: user.user_id });
 
-    // ✅ Get UTC time
+    // ✅ Capture UTC timestamp
     const checkInUTC = getCurrentUTC();
     
-    // ✅ Calculate status using UTC (NO conversion)
-    const status = calculateAttendanceStatusUTC(checkInUTC, session);
-    const timeStr = getUTCString(checkInUTC);
+    // ✅ Convert checkInUTC to local event time & calculate attendance status
+    const status = calculateAttendanceStatusLocal(checkInUTC, session);
+    const localTimeStr = getLocalTimeString(checkInUTC);
 
     console.log(`📍 Check-in complete:`);
     console.log(`   Attendee: ${attendee.first_name} ${attendee.last_name}`);
     console.log(`   Session: ${session.name}`);
     console.log(`   Status: ${status}`);
     console.log(`   Time (UTC): ${checkInUTC.toISOString()}`);
-    console.log(`   Time (HH:MM UTC): ${timeStr}`);
+    console.log(`   Time Local (HH:MM): ${localTimeStr}`);
 
-    // Add attendee to session with UTC time
+    // Add attendee to session
     session.attendees.push({
       attendeeId: attendee._id,
       unique_id: attendee.unique_id,
@@ -253,8 +261,8 @@ export async function POST(
         },
         check_in: {
           method: method,
-          time: checkInUTC, // ✅ UTC time
-          time_string: timeStr, // ✅ UTC time string (HH:MM)
+          time: checkInUTC,
+          time_string_local: localTimeStr,
           status: status,
           checked_by: staffUser?.name || "System",
         },
