@@ -1,4 +1,3 @@
-// src/app/attendance/page.tsx
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -81,14 +80,15 @@ export default function AttendancePage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const getCurrentDayFromDate = () => {
+    // Dynamically match local dates or default to 1
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
 
     const dayMapping: Record<string, number> = {
       '2026-07-28': 1,
       '2026-07-29': 2,
-      '2026-07-30': 3,
-      '2026-07-31': 4,
+      '2026-07-30': 1, // Updated to match current session day
+      '2026-07-31': 2,
     };
 
     return dayMapping[todayStr] || 1;
@@ -113,7 +113,7 @@ export default function AttendancePage() {
   };
 
   const fetchSessions = async (day?: number) => {
-    const targetDay = day || getCurrentDayFromDate();
+    const targetDay = day || currentDay || getCurrentDayFromDate();
     setCurrentDay(targetDay);
     setLoading(true);
     setError(null);
@@ -166,7 +166,7 @@ export default function AttendancePage() {
       if (data.success) {
         setStudentInfo(data.data.student);
         setCurrentStep(2);
-        await fetchSessions();
+        await fetchSessions(currentDay);
         toast.success(`Welcome ${data.data.student.full_name}!`);
       } else {
         setStudentError(data.message || 'Student not found');
@@ -186,9 +186,8 @@ export default function AttendancePage() {
       return;
     }
 
-    // Check if already checked in
     const alreadyCheckedIn = session.attendees?.some(
-      (a: any) => a.unique_id === studentInfo.unique_id
+      (a: any) => a.unique_id === studentInfo.unique_id || a.nls_id === studentInfo.unique_id
     );
 
     if (alreadyCheckedIn) {
@@ -274,17 +273,18 @@ export default function AttendancePage() {
     return type === 'morning' ? 'Morning' : 'Afternoon';
   };
 
-  const getStatusColor = (session: Session) => {
-    const stats = session.attendanceStats;
-    if (!stats || stats.total === 0) return 'bg-blue-50 text-blue-700 border-blue-200';
-    const attended = stats.on_time + stats.late;
-    const rate = stats.total > 0 ? (attended / stats.total) * 100 : 0;
-    if (rate >= 80) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-    if (rate >= 50) return 'bg-amber-50 text-amber-700 border-amber-200';
-    return 'bg-rose-50 text-rose-700 border-rose-200';
+  const renderStatusBadge = (status: string) => {
+    const normalized = status?.toLowerCase();
+
+    if (normalized === 'on_time') {
+      return <span className="font-bold text-emerald-700">✅ On Time</span>;
+    }
+    if (normalized === 'late') {
+      return <span className="font-bold text-amber-700">⚠️ Late</span>;
+    }
+    return <span className="font-bold text-rose-700">❌ Absent</span>;
   };
 
-  // Focus input when modal opens
   useEffect(() => {
     if (currentStep === 2) {
       setTimeout(() => inputRef.current?.focus(), 100);
@@ -293,15 +293,13 @@ export default function AttendancePage() {
 
   return (
     <main className="relative min-h-screen bg-[#ECF4EE] px-3 py-4 sm:px-6 text-[#0C0D0D]">
-      {/* Subtle ambient lighting */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute left-[15%] top-0 h-[300px] w-[300px] rounded-full bg-white/60 blur-3xl" />
         <div className="absolute bottom-0 right-[15%] h-[300px] w-[300px] rounded-full bg-emerald-100/40 blur-3xl" />
       </div>
 
       <div className="relative z-10 max-w-md mx-auto space-y-3">
-
-        {/* Navigation & Compact Header */}
+        {/* Navigation & Header */}
         <div className="flex items-center justify-between">
           <Link
             href="/"
@@ -316,7 +314,7 @@ export default function AttendancePage() {
           </span>
         </div>
 
-        {/* Compact Step Progress Bar */}
+        {/* Step Progress Bar */}
         <div className="rounded-2xl border border-[#d2e5d7]/80 bg-white/80 px-3 py-2.5 backdrop-blur-md">
           <div className="flex items-center justify-between px-1">
             {steps.map((step, index) => (
@@ -335,17 +333,21 @@ export default function AttendancePage() {
                       <step.icon className="w-3.5 h-3.5" />
                     )}
                   </div>
-                  <span className={`text-[9px] font-semibold ${
-                    currentStep >= step.number ? 'text-[#0C0D0D]' : 'text-[#0C0D0D]/40'
-                  }`}>
+                  <span
+                    className={`text-[9px] font-semibold ${
+                      currentStep >= step.number ? 'text-[#0C0D0D]' : 'text-[#0C0D0D]/40'
+                    }`}
+                  >
                     {step.label}
                   </span>
                 </div>
 
                 {index < steps.length - 1 && (
-                  <div className={`w-6 sm:w-10 h-0.5 mx-1 mb-3 rounded-full transition-all ${
-                    currentStep > step.number ? 'bg-emerald-600' : 'bg-[#d2e5d7]'
-                  }`} />
+                  <div
+                    className={`w-6 sm:w-10 h-0.5 mx-1 mb-3 rounded-full transition-all ${
+                      currentStep > step.number ? 'bg-emerald-600' : 'bg-[#d2e5d7]'
+                    }`}
+                  />
                 )}
               </div>
             ))}
@@ -426,7 +428,6 @@ export default function AttendancePage() {
               transition={{ duration: 0.2 }}
               className="space-y-2.5"
             >
-              {/* Compact Student Header Banner */}
               {studentInfo && (
                 <div className="rounded-2xl border border-[#d2e5d7]/80 bg-white/90 p-3 flex items-center justify-between backdrop-blur-md">
                   <div className="flex items-center gap-2.5">
@@ -494,7 +495,7 @@ export default function AttendancePage() {
                       const isAvailable = session.is_active;
                       const isCheckingIn = checkingInId === session._id;
                       const alreadyCheckedIn = session.attendees?.some(
-                        (a: any) => a.unique_id === studentInfo?.unique_id
+                        (a: any) => a.unique_id === studentInfo?.unique_id || a.nls_id === studentInfo?.unique_id
                       );
 
                       return (
@@ -510,16 +511,20 @@ export default function AttendancePage() {
                         >
                           <div className="flex flex-col min-w-0 pr-2">
                             <div className="flex items-center gap-1.5">
-                              <span className={`text-xs font-bold truncate ${
-                                isAvailable && !alreadyCheckedIn ? 'text-[#0C0D0D]' : 'text-[#0C0D0D]/50'
-                              }`}>
+                              <span
+                                className={`text-xs font-bold truncate ${
+                                  isAvailable && !alreadyCheckedIn ? 'text-[#0C0D0D]' : 'text-[#0C0D0D]/50'
+                                }`}
+                              >
                                 {session.name}
                               </span>
-                              <span className={`text-[8px] font-bold px-1.5 py-0.2 rounded-full border ${
-                                session.type === 'morning'
-                                  ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                  : 'bg-amber-50 text-amber-700 border-amber-200'
-                              }`}>
+                              <span
+                                className={`text-[8px] font-bold px-1.5 py-0.2 rounded-full border ${
+                                  session.type === 'morning'
+                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                    : 'bg-amber-50 text-amber-700 border-amber-200'
+                                }`}
+                              >
                                 {getTypeLabel(session.type)}
                               </span>
                               {alreadyCheckedIn && (
@@ -561,7 +566,6 @@ export default function AttendancePage() {
                 )}
               </div>
 
-              {/* Compact Back Action */}
               <button
                 onClick={() => {
                   setCurrentStep(1);
@@ -594,9 +598,7 @@ export default function AttendancePage() {
                   Re-enter your NLS ID to confirm attendance for:
                 </p>
                 <div className="mt-2 p-2 bg-[#ECF4EE]/50 border border-[#d2e5d7] rounded-xl">
-                  <p className="text-xs font-bold text-emerald-900">
-                    {pendingSession.name}
-                  </p>
+                  <p className="text-xs font-bold text-emerald-900">{pendingSession.name}</p>
                   <p className="text-[10px] text-[#0C0D0D]/50 mt-0.5">
                     {pendingSession.start_time} - {pendingSession.end_time} • Day {pendingSession.day}
                   </p>
@@ -671,45 +673,44 @@ export default function AttendancePage() {
                 </div>
 
                 <div>
-                  <h2 className="text-lg font-bold text-[#0C0D0D]">
-                    Check-in Complete! 🎉
-                  </h2>
+                  <h2 className="text-lg font-bold text-[#0C0D0D]">Check-in Complete! 🎉</h2>
                   <p className="text-xs text-[#0C0D0D]/60 mt-0.5">
-                    Checked in to <span className="text-[#0C0D0D] font-bold">{checkinResult?.session?.name}</span>
+                    Checked in to{' '}
+                    <span className="text-[#0C0D0D] font-bold">
+                      {checkinResult?.session?.name || pendingSession?.name}
+                    </span>
                   </p>
                 </div>
 
                 <div className="bg-[#ECF4EE]/40 border border-[#d2e5d7] rounded-xl p-3 text-left space-y-1.5 text-xs">
                   <div className="flex justify-between border-b border-[#d2e5d7]/60 pb-1">
                     <span className="text-[#0C0D0D]/50 font-medium">Student</span>
-                    <span className="font-bold text-[#0C0D0D]">{studentInfo?.full_name}</span>
+                    <span className="font-bold text-[#0C0D0D]">
+                      {checkinResult?.attendee?.full_name || studentInfo?.full_name}
+                    </span>
                   </div>
                   <div className="flex justify-between border-b border-[#d2e5d7]/60 pb-1">
                     <span className="text-[#0C0D0D]/50 font-medium">Session</span>
-                    <span className="font-bold text-emerald-800">{checkinResult?.session?.name}</span>
+                    <span className="font-bold text-emerald-800">
+                      {checkinResult?.session?.name || pendingSession?.name}
+                    </span>
                   </div>
                   <div className="flex justify-between border-b border-[#d2e5d7]/60 pb-1">
                     <span className="text-[#0C0D0D]/50 font-medium">Day</span>
-                    <span className="font-bold text-[#0C0D0D]">Day {checkinResult?.session?.day}</span>
+                    <span className="font-bold text-[#0C0D0D]">
+                      Day {checkinResult?.session?.day || pendingSession?.day}
+                    </span>
                   </div>
                   <div className="flex justify-between border-b border-[#d2e5d7]/60 pb-1">
-                    <span className="text-[#0C0D0D]/50 font-medium">Time</span>
-                    <span className="font-bold text-[#0C0D0D]">{pendingSession?.start_time} - {pendingSession?.end_time}</span>
+                    <span className="text-[#0C0D0D]/50 font-medium">Check-in Time</span>
+                    <span className="font-bold font-mono text-[#0C0D0D]">
+                      {checkinResult?.check_in?.time_string_local || 'Just now'}
+                    </span>
                   </div>
-                  {checkinResult?.check_in?.status && (
-                    <div className="flex justify-between">
-                      <span className="text-[#0C0D0D]/50 font-medium">Status</span>
-                      <span className={`font-bold ${
-                        checkinResult.check_in.status === 'on_time' ? 'text-emerald-700' :
-                        checkinResult.check_in.status === 'late' ? 'text-amber-700' :
-                        'text-rose-700'
-                      }`}>
-                        {checkinResult.check_in.status === 'on_time' ? '✅ On Time' :
-                         checkinResult.check_in.status === 'late' ? '⚠️ Late' :
-                         '❌ Absent'}
-                      </span>
-                    </div>
-                  )}
+                  <div className="flex justify-between">
+                    <span className="text-[#0C0D0D]/50 font-medium">Status</span>
+                    {renderStatusBadge(checkinResult?.check_in?.status)}
+                  </div>
                 </div>
 
                 <div className="flex flex-col gap-2 pt-1">

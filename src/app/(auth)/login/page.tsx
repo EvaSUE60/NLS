@@ -59,8 +59,13 @@ export default function LoginPage() {
       // Store basic user information
       localStorage.setItem("user", JSON.stringify(user));
 
-      // Go to protected dashboard
-      router.push("/dashboard");
+      // Redirect based on user role
+      // Staff → check-in page, Admin/Super Admin → dashboard
+      if (user.role === "staff") {
+        router.push("/dashboard/check-in");
+      } else {
+        router.push("/dashboard");
+      }
     } catch (err: any) {
       setError(
         err.response?.data?.error ||
