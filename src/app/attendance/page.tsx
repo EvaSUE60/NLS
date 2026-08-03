@@ -53,6 +53,16 @@ interface StudentInfo {
   campus: string;
 }
 
+/**
+ * Safely converts a Date object into YYYY-MM-DD based on client local time
+ */
+function getLocalYYYYMMDD(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export default function AttendancePage() {
   const [currentStep, setCurrentStep] = useState(1);
 
@@ -62,12 +72,25 @@ export default function AttendancePage() {
   const [loadingStudent, setLoadingStudent] = useState(false);
   const [studentError, setStudentError] = useState<string | null>(null);
 
-  // Step 2: Sessions
+  // Step 2: Sessions - Safely initialize currentDay without UTC date jumps
+  const getCurrentDayFromDate = () => {
+    const todayStr = getLocalYYYYMMDD();
+
+    const dayMapping: Record<string, number> = {
+      '2026-07-28': 1,
+      '2026-07-29': 2,
+      '2026-07-30': 3,
+      '2026-07-31': 4,
+    };
+
+    return dayMapping[todayStr] || 1;
+  };
+
+  const [currentDay, setCurrentDay] = useState<number>(getCurrentDayFromDate);
   const [allSessions, setAllSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [checkingInId, setCheckingInId] = useState<string | null>(null);
-  const [currentDay, setCurrentDay] = useState(1);
 
   // Step 3: Confirm
   const [pendingSession, setPendingSession] = useState<Session | null>(null);
@@ -78,21 +101,6 @@ export default function AttendancePage() {
   const [checkinResult, setCheckinResult] = useState<any>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const getCurrentDayFromDate = () => {
-    // Dynamically match local dates or default to 1
-    const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
-
-    const dayMapping: Record<string, number> = {
-      '2026-07-28': 1,
-      '2026-07-29': 2,
-      '2026-07-30': 1, // Updated to match current session day
-      '2026-07-31': 2,
-    };
-
-    return dayMapping[todayStr] || 1;
-  };
 
   const formatNlsId = (input: string): string => {
     const trimmed = input.toUpperCase().trim();
@@ -113,29 +121,29 @@ export default function AttendancePage() {
   };
 
   const fetchSessions = async (day?: number) => {
-    const targetDay = day || currentDay || getCurrentDayFromDate();
-    setCurrentDay(targetDay);
-    setLoading(true);
-    setError(null);
+  const targetDay = day || currentDay || getCurrentDayFromDate();
+  setCurrentDay(targetDay);
+  setLoading(true);
+  setError(null);
 
-    try {
-      const response = await fetch(`/api/public/sessions?day=${targetDay}`);
-      const data = await response.json();
+  try {
+    const response = await fetch(`/api/public/sessions?day=${targetDay}`);
+    const data = await response.json();
 
-      if (data.success) {
-        setAllSessions(data.data.sessions || []);
-      } else {
-        setError(data.message || 'Failed to load sessions');
-        toast.error(data.message || 'Failed to load sessions');
-      }
-    } catch (err) {
-      console.error('Fetch error:', err);
-      setError('Failed to load sessions. Please try again.');
-      toast.error('Failed to load sessions');
-    } finally {
-      setLoading(false);
+    if (data.success) {
+      setAllSessions(data.data.sessions || []);
+    } else {
+      setError(data.message || 'Failed to load sessions');
+      toast.error(data.message || 'Failed to load sessions');
     }
-  };
+  } catch (err) {
+    console.error('Fetch error:', err);
+    setError('Failed to load sessions. Please try again.');
+    toast.error('Failed to load sessions');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const filteredSessions = allSessions.filter(
     (s: Session) => s.day === currentDay && s.is_active
@@ -277,12 +285,12 @@ export default function AttendancePage() {
     const normalized = status?.toLowerCase();
 
     if (normalized === 'on_time') {
-      return <span className="font-bold text-emerald-700">✅ On Time</span>;
+      return <span className="font-bold text-[#15803D]">✅ On Time</span>;
     }
     if (normalized === 'late') {
-      return <span className="font-bold text-amber-700">⚠️ Late</span>;
+      return <span className="font-bold text-[#B45309]">⚠️ Late</span>;
     }
-    return <span className="font-bold text-rose-700">❌ Absent</span>;
+    return <span className="font-bold text-[#BE123C]">❌ Absent</span>;
   };
 
   useEffect(() => {
@@ -323,7 +331,7 @@ export default function AttendancePage() {
                   <div
                     className={`w-7 h-7 rounded-xl flex items-center justify-center font-bold text-[11px] transition-all ${
                       currentStep >= step.number
-                        ? 'bg-emerald-700 text-white shadow-2xs'
+                        ? 'bg-[#15803D] text-white shadow-2xs'
                         : 'bg-[#ECF4EE] text-[#0C0D0D]/40 border border-[#d2e5d7]'
                     }`}
                   >
@@ -399,7 +407,7 @@ export default function AttendancePage() {
                   <button
                     type="submit"
                     disabled={loadingStudent}
-                    className="w-full flex items-center justify-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl py-2.5 px-4 text-xs font-bold transition-all disabled:opacity-50"
+                    className="w-full flex items-center justify-center gap-1.5 bg-[#15803D] hover:bg-[#166534] text-white rounded-xl py-2.5 px-4 text-xs font-bold transition-all disabled:opacity-50"
                   >
                     {loadingStudent ? (
                       <>
@@ -455,7 +463,7 @@ export default function AttendancePage() {
                     onClick={() => handleDayChange(day)}
                     className={`flex-1 py-1.5 px-3 rounded-xl text-[11px] font-bold transition-all border ${
                       currentDay === day
-                        ? 'bg-emerald-700 text-white border-emerald-700'
+                        ? 'bg-[#15803D] text-white border-[#15803D]'
                         : 'bg-white/80 text-[#0C0D0D]/60 border-[#d2e5d7] hover:bg-white hover:text-[#0C0D0D]'
                     }`}
                   >
@@ -641,7 +649,7 @@ export default function AttendancePage() {
                     <button
                       type="submit"
                       disabled={!!checkingInId}
-                      className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5"
+                      className="flex-1 bg-[#15803D] hover:bg-[#166534] text-white text-xs font-bold py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5"
                     >
                       {checkingInId ? (
                         <>
@@ -722,7 +730,7 @@ export default function AttendancePage() {
                       setConfirmNlsId('');
                       fetchSessions(currentDay);
                     }}
-                    className="w-full bg-emerald-700 hover:bg-emerald-800 text-white py-2.5 px-4 rounded-xl text-xs font-bold transition-all"
+                    className="w-full bg-[#15803D] hover:bg-[#166534] text-white py-2.5 px-4 rounded-xl text-xs font-bold transition-all"
                   >
                     Back to Sessions
                   </button>
