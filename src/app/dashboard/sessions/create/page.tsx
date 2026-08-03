@@ -1,7 +1,7 @@
 // src/app/dashboard/sessions/create/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -13,7 +13,7 @@ import {
   Building2,
   AlertCircle,
   X,
-  ChevronDown,
+  CalendarDays,
 } from 'lucide-react';
 import { Card } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
@@ -32,48 +32,100 @@ const SESSION_TYPES = [
   { value: 'afternoon', label: 'Afternoon Session' },
 ];
 
+// Event date mapping
+const EVENT_DAYS: Record<string, number> = {
+  '2026-07-28': 1,
+  '2026-07-29': 2,
+  '2026-07-30': 3,
+  '2026-07-31': 4,
+};
+
+// Get current date in YYYY-MM-DD format
+function getTodayYYYYMMDD(): string {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatLocalYYYYMMDD(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export default function CreateSessionPage() {
   const router = useRouter();
-  // ✅ Use autoFetch: false to prevent automatic fetching
   const { create, isProcessing, error, clearError } = useSession(false);
 
-  const [formData, setFormData] = useState({
-    name: '',
-    type: 'morning' as 'morning' | 'afternoon',
-    day: 1,
-    date: '',
-    start_time: '09:00',
-    end_time: '12:00',
-    on_time_start: '08:40',
-    on_time_end: '09:05',
-    late_end: '09:25',
-    room: '',
-    building: '',
+  // Get today's date
+  const todayStr = getTodayYYYYMMDD();
+  
+  // Determine default day based on today's date
+  const defaultDay = EVENT_DAYS[todayStr] || 1;
+
+  const [formData, setFormData] = useState(() => {
+    // Use today's date if it's an event day, otherwise use the first event day
+    const defaultDate = EVENT_DAYS[todayStr] ? todayStr : '2026-07-28';
+    
+    return {
+      name: `Morning Session - Day ${defaultDay}`,
+      type: 'morning' as 'morning' | 'afternoon',
+      day: defaultDay,
+      date: defaultDate,
+      start_time: '09:00',
+      end_time: '12:00',
+      on_time_start: '08:40',
+      on_time_end: '09:05',
+      late_end: '09:25',
+      room: '',
+      building: '',
+    };
   });
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  // Set default date to tomorrow
-  useState(() => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const dateStr = tomorrow.toISOString().split('T')[0];
-    setFormData(prev => ({ ...prev, date: dateStr }));
-  });
+  // Auto-set day when date changes
+  const handleDateChange = (date: string) => {
+    const day = EVENT_DAYS[date];
+    if (day) {
+      setFormData(prev => ({
+        ...prev,
+        date,
+        day,
+        name: `${prev.type === 'morning' ? 'Morning' : 'Afternoon'} Session - Day ${day}`
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, date }));
+      toast.warning('Selected date is not an event day. Please select a date between July 28-31, 2026.');
+    }
+  };
 
   const handleChange = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => {
+      const next = { ...prev, [field]: value };
+
+      // Auto-generate name if name matches template or is updated via type/day
+      if (field === 'type' || field === 'day') {
+        const typeLabel = next.type === 'morning' ? 'Morning' : 'Afternoon';
+        const dayLabel = `Day ${next.day}`;
+        next.name = `${typeLabel} Session - ${dayLabel}`;
+      }
+
+      return next;
+    });
+
     if (formErrors[field]) {
       setFormErrors(prev => ({ ...prev, [field]: '' }));
     }
+  };
 
-    // Auto-generate name if name is empty
-    if (field === 'type' || field === 'day') {
-      const typeLabel = formData.type === 'morning' ? 'Morning' : 'Afternoon';
-      const dayLabel = `Day ${formData.day}`;
-      const newName = `${typeLabel} Session - ${dayLabel}`;
-      setFormData(prev => ({ ...prev, name: newName }));
-    }
+  const setTodayDate = () => {
+    const today = getTodayYYYYMMDD();
+    handleDateChange(today);
+    toast.success('Date set to today');
   };
 
   const validateForm = () => {
@@ -235,7 +287,7 @@ export default function CreateSessionPage() {
               </label>
               <select
                 value={formData.day}
-                onChange={(e) => handleChange('day', parseInt(e.target.value))}
+                onChange={(e) => handleChange('day', parseInt(e.target.value, 10))}
                 className={`w-full px-4 py-3 bg-[#FAFAFA] border ${
                   formErrors.day ? 'border-rose-300 focus:ring-rose-500' : 'border-[#0C0D0D]/10 focus:ring-[#0C0D0D]'
                 } rounded-2xl text-sm font-semibold text-[#0C0D0D] focus:bg-white focus:outline-none focus:ring-2 transition-all`}
@@ -254,21 +306,35 @@ export default function CreateSessionPage() {
               <label className="block text-xs font-bold text-[#0C0D0D] mb-1.5 uppercase tracking-wider">
                 Date <span className="text-rose-500">*</span>
               </label>
-              <input
-                type="date"
-                value={formData.date}
-                onChange={(e) => handleChange('date', e.target.value)}
-                className={`w-full px-4 py-3 bg-[#FAFAFA] border ${
-                  formErrors.date ? 'border-rose-300 focus:ring-rose-500' : 'border-[#0C0D0D]/10 focus:ring-[#0C0D0D]'
-                } rounded-2xl text-sm font-semibold text-[#0C0D0D] focus:bg-white focus:outline-none focus:ring-2 transition-all`}
-              />
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  value={formData.date}
+                  onChange={(e) => handleDateChange(e.target.value)}
+                  className={`flex-1 px-4 py-3 bg-[#FAFAFA] border ${
+                    formErrors.date ? 'border-rose-300 focus:ring-rose-500' : 'border-[#0C0D0D]/10 focus:ring-[#0C0D0D]'
+                  } rounded-2xl text-sm font-semibold text-[#0C0D0D] focus:bg-white focus:outline-none focus:ring-2 transition-all`}
+                />
+                <button
+                  type="button"
+                  onClick={setTodayDate}
+                  className="px-4 py-3 bg-[#ECF4EE] hover:bg-[#d2e5d7] rounded-2xl text-sm font-bold text-[#0C0D0D] transition-all whitespace-nowrap flex items-center gap-1.5"
+                >
+                  <CalendarDays className="h-4 w-4" />
+                  Today
+                </button>
+              </div>
               {formErrors.date && (
                 <p className="mt-1 text-xs text-rose-600">{formErrors.date}</p>
               )}
+              <p className="mt-1 text-[10px] text-[#0C0D0D]/50">
+                Event dates: July 28-31, 2026
+              </p>
             </div>
           </div>
         </Card>
 
+        {/* Rest of the form remains the same... */}
         {/* Time Windows Card */}
         <Card className="p-6 border border-[#ECF4EE]">
           <div className="flex items-center gap-3 mb-6">
@@ -392,7 +458,6 @@ export default function CreateSessionPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* Building */}
             <div>
               <label className="block text-xs font-bold text-[#0C0D0D] mb-1.5 uppercase tracking-wider">
                 Building
@@ -405,8 +470,6 @@ export default function CreateSessionPage() {
                 className="w-full px-4 py-3 bg-[#FAFAFA] border border-[#0C0D0D]/10 rounded-2xl text-sm font-semibold text-[#0C0D0D] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0C0D0D] transition-all"
               />
             </div>
-
-            {/* Room */}
             <div>
               <label className="block text-xs font-bold text-[#0C0D0D] mb-1.5 uppercase tracking-wider">
                 Room
