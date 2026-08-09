@@ -1,7 +1,7 @@
 // src/hooks/useAuth.ts
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAuthStore } from '@/src/store/auth.store';
 import { useRouter } from 'next/navigation';
 
@@ -14,6 +14,7 @@ export const useAuth = () => {
     isAdmin,
     isSuperAdmin,
     role,
+    isHydrated,
     login,
     logout,
     register,
@@ -22,16 +23,27 @@ export const useAuth = () => {
   } = useAuthStore();
 
   const router = useRouter();
+  const initialized = useRef(false);
 
-  // Check auth status on mount
+  // ✅ Check auth status on mount and when hydrated
   useEffect(() => {
+    if (!isHydrated) return;
+
     const token = localStorage.getItem('accessToken');
-    if (token && !isAuthenticated) {
+    
+    if (token && !isAuthenticated && !isLoading && !initialized.current) {
+      initialized.current = true;
       getCurrentUser();
     }
-  }, [isAuthenticated, getCurrentUser]);
+  }, [isHydrated, isAuthenticated, isLoading, getCurrentUser]);
 
-  // Login with redirect
+  // ✅ Reset initialized flag when user logs out
+  useEffect(() => {
+    if (!isAuthenticated) {
+      initialized.current = false;
+    }
+  }, [isAuthenticated]);
+
   const loginWithRedirect = async (email: string, password: string, redirectTo?: string) => {
     try {
       await login(email, password);
@@ -41,23 +53,20 @@ export const useAuth = () => {
     }
   };
 
-  // Logout with redirect
   const logoutWithRedirect = async (redirectTo?: string) => {
     await logout();
+    initialized.current = false;
     router.push(redirectTo || '/login');
   };
 
-  // Check if user has required role
   const hasRole = (roles: string[]) => {
     if (!user) return false;
     return roles.includes(user.role);
   };
 
-  // Check if user is admin (admin or super_admin)
   const isAdminUser = isAdmin || isSuperAdmin;
 
   return {
-    // State
     user,
     isAuthenticated,
     isLoading,
@@ -65,8 +74,8 @@ export const useAuth = () => {
     role,
     isAdmin: isAdminUser,
     isSuperAdmin,
+    isHydrated,
 
-    // Actions
     login,
     loginWithRedirect,
     logout,

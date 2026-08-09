@@ -14,6 +14,7 @@ export const useDorm = () => {
     isLoading,
     error,
     isProcessing,
+    isExporting, // ✅ Add this
     lastAutoAssignResult,
     filters,
 
@@ -24,6 +25,7 @@ export const useDorm = () => {
     autoAssign,
     resetDorm,
     removeAssignment,
+    exportDormStats, // ✅ Add this
     clearSelected,
     clearError,
     setFilters,
@@ -69,6 +71,11 @@ export const useDorm = () => {
     };
   };
 
+  // ==================== EXPORT ====================
+  const exportStats = async (filters?: { type?: string; buildingId?: string }) => {
+    return exportDormStats(filters);
+  };
+
   return {
     // ==================== STATE ====================
     stats,
@@ -77,6 +84,7 @@ export const useDorm = () => {
     isLoading,
     error,
     isProcessing,
+    isExporting, // ✅ Add this
     lastAutoAssignResult,
     filters,
 
@@ -90,6 +98,9 @@ export const useDorm = () => {
     autoAssign,
     resetDorm,
     removeAssignment,
+
+    // ==================== EXPORT ====================
+    exportStats, // ✅ Add this
 
     // ==================== FILTERS ====================
     filterByStatus,

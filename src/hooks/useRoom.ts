@@ -1,9 +1,8 @@
 // src/lib/hooks/useRoom.ts
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useRoomStore } from '@/src/store/room.store';
-import { CreateRoomData, UpdateRoomData } from '@/src/types/room.types';
 
 export const useRoom = () => {
   const {
@@ -12,14 +11,16 @@ export const useRoom = () => {
     selectedRoom,
     isLoading,
     error,
+    isToggling,
     filters,
     stats,
     
     // ==================== ACTIONS ====================
-    fetchRooms,  // ✅ Make sure this is destructured
+    fetchRooms,
     fetchRoom,
     createRoom,
     updateRoom,
+    toggleRoomStatus,
     deleteRoom,
     clearSelected,
     clearError,
@@ -28,33 +29,43 @@ export const useRoom = () => {
 
   // ==================== AUTO-FETCH ON MOUNT ====================
   useEffect(() => {
-    fetchRooms();  // ✅ This should work if fetchRooms exists in the store
-  }, []);
+    fetchRooms();
+  }, [fetchRooms]);
 
   // ==================== FILTER BY BUILDING ====================
-  const filterByBuilding = (buildingId: string) => {
+  const filterByBuilding = useCallback((buildingId: string) => {
     return fetchRooms({ building_id: buildingId });
-  };
+  }, [fetchRooms]);
 
   // ==================== FILTER BY FLOOR ====================
-  const filterByFloor = (floor: number) => {
+  const filterByFloor = useCallback((floor: number) => {
     return fetchRooms({ floor });
-  };
+  }, [fetchRooms]);
 
   // ==================== FILTER BY AVAILABILITY ====================
-  const filterByAvailability = (isFull: boolean) => {
+  const filterByAvailability = useCallback((isFull: boolean) => {
     return fetchRooms({ is_full: isFull });
-  };
+  }, [fetchRooms]);
 
   // ==================== FILTER BY BUILDING TYPE ====================
-  const filterByBuildingType = (buildingType: 'men' | 'women') => {
+  const filterByBuildingType = useCallback((buildingType: 'men' | 'women') => {
     return fetchRooms({ building_type: buildingType });
-  };
+  }, [fetchRooms]);
+
+  // ==================== FILTER BY ACTIVE STATUS ====================
+  const filterByActiveStatus = useCallback((isActive: boolean) => {
+    return fetchRooms({ is_active: isActive });
+  }, [fetchRooms]);
+
+  // ==================== SHOW INACTIVE ROOMS ====================
+  const showInactiveRooms = useCallback((show: boolean) => {
+    return fetchRooms({ show_inactive: show ? 'true' : undefined });
+  }, [fetchRooms]);
 
   // ==================== REFETCH ====================
-  const refetch = () => {
+  const refetch = useCallback(() => {
     return fetchRooms();
-  };
+  }, [fetchRooms]);
 
   return {
     // ==================== STATE ====================
@@ -62,17 +73,19 @@ export const useRoom = () => {
     selectedRoom,
     isLoading,
     error,
+    isToggling,
     filters,
     stats,
 
     // ==================== FETCH ACTIONS ====================
-    fetchRooms,  // ✅ Expose fetchRooms
+    fetchRooms,
     fetchRoom,
     refetch,
 
     // ==================== CRUD ACTIONS ====================
     create: createRoom,
     update: updateRoom,
+    toggleRoomStatus,
     deleteRoom: deleteRoom,
 
     // ==================== FILTERS ====================
@@ -80,6 +93,8 @@ export const useRoom = () => {
     filterByFloor,
     filterByAvailability,
     filterByBuildingType,
+    filterByActiveStatus,
+    showInactiveRooms,
     resetFilters,
 
     // ==================== UTILITY ====================

@@ -1,7 +1,7 @@
 // src/app/dashboard/attendees/page.tsx
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Users,
   UserCheck,
@@ -25,13 +25,20 @@ import {
   Loader2,
   ShieldCheck,
   Sparkles,
-  Filter
+  Filter,
+  User,
+  AtSign,
+  Hash,
+  Building2,
+  Calendar,
+  Edit
 } from 'lucide-react';
 import { useAttendee } from '@/src/hooks/useAttendee';
 import { Badge } from '@/src/components/ui/Badge';
 import { Button } from '@/src/components/ui/Button';
 import { Avatar } from '@/src/components/ui/Avatar';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 
 export default function AttendeesPage() {
   const router = useRouter();
@@ -50,6 +57,7 @@ export default function AttendeesPage() {
     refetch,
     clearError,
     fetchStats,
+    export: exportAttendees,
   } = useAttendee();
 
   // Local state for UI
@@ -61,6 +69,7 @@ export default function AttendeesPage() {
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isCheckingIn, setIsCheckingIn] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Fetch attendees on mount
   useEffect(() => {
@@ -85,7 +94,9 @@ export default function AttendeesPage() {
     const filters: any = { page: 1 };
 
     if (selectedRegion !== 'all') filters.region = selectedRegion;
-    if (selectedGender !== 'all') filters.gender = selectedGender;
+    if (selectedGender !== 'all') {
+      filters.gender = selectedGender.toLowerCase();
+    }
     if (selectedStatus === 'arrived') filters.arrived = true;
     if (selectedStatus === 'not-arrived') filters.arrived = false;
 
@@ -96,14 +107,60 @@ export default function AttendeesPage() {
     handleFilterChange();
   }, [selectedRegion, selectedGender, selectedStatus, handleFilterChange]);
 
+  // ==================== ✅ FIXED: Calculate Stats ====================
+  // Use stats from API with fallback to attendees array.
+  // The user requested overall stats (all 725 records) rather than the paginated view.
+  const total = stats?.total?.total ?? stats?.summary?.total_attendees ?? pagination?.total ?? attendees.length ?? 0;
+  
+  // Since we don't have global arrived count from the list API, we use summary.arrived which is global.
+  const arrived = stats?.summary?.arrived ?? attendees.filter(a => a.arrived).length ?? 0;
+  const notArrived = Math.max(0, total - arrived);
+  const arrivalRate = total > 0 ? Math.round((arrived / total) * 100) : 0;
+  const recentArrivals = stats?.summary?.recent_arrivals ?? 0;
+  
+  // Use overall global counts from API stats rather than current page slice
+  const maleCount = stats?.total?.male ?? attendees.filter(a => a.gender === 'Male').length;
+  const femaleCount = stats?.total?.female ?? attendees.filter(a => a.gender === 'Female').length;
+  
+  // Get regions from stats or attendees
+  const regionCount = regions?.length ?? new Set(attendees.map(a => a.region)).size;
+
+  // ==================== EXPORT HANDLER ====================
+  const handleExport = async () => {
+    if (attendees.length === 0) {
+      toast.error('No attendees to export');
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const filters: any = {};
+      if (searchQuery) filters.search = searchQuery;
+      if (selectedRegion !== 'all') filters.region = selectedRegion;
+      if (selectedGender !== 'all') filters.gender = selectedGender;
+      if (selectedStatus === 'arrived') filters.checkedIn = 'true';
+      if (selectedStatus === 'not-arrived') filters.checkedIn = 'false';
+      
+      await exportAttendees(filters);
+      toast.success(`Successfully exported ${attendees.length} attendees`);
+    } catch (error: any) {
+      console.error('Export error:', error);
+      toast.error(error?.message || 'Failed to export attendees');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   // Handle check-in
   const handleCheckIn = async (id: string) => {
     setIsCheckingIn(true);
     try {
       await checkInArrival(id, 'manual');
       await refetch();
-    } catch (error) {
+      toast.success('Attendee checked in successfully');
+    } catch (error: any) {
       console.error('Check-in failed:', error);
+      toast.error(error?.message || 'Failed to check in attendee');
     } finally {
       setIsCheckingIn(false);
     }
@@ -118,8 +175,10 @@ export default function AttendeesPage() {
       await deleteAttendee(id);
       await refetch();
       setViewModalOpen(false);
-    } catch (error) {
+      toast.success('Attendee deleted successfully');
+    } catch (error: any) {
       console.error('Delete failed:', error);
+      toast.error(error?.message || 'Failed to delete attendee');
     } finally {
       setIsDeleting(false);
     }
@@ -131,10 +190,22 @@ export default function AttendeesPage() {
     setViewModalOpen(true);
   };
 
-  // Calculate stats
-  const total = stats?.summary?.total_attendees ?? 0;
-  const arrived = stats?.summary?.arrived ?? 0;
-  const notArrived = total - arrived;
+  // Handle edit
+  const handleEdit = (id: string) => {
+    router.push(`/dashboard/attendees/${id}/edit`);
+  };
+
+  // Get unique gender values from attendees for the filter dropdown
+  const uniqueGenders = useMemo(() => {
+    const genderSet = new Set<string>();
+    attendees.forEach(a => {
+      if (a.gender) {
+        const displayGender = a.gender.charAt(0).toUpperCase() + a.gender.slice(1);
+        genderSet.add(displayGender);
+      }
+    });
+    return Array.from(genderSet);
+  }, [attendees]);
 
   if (isLoading && attendees.length === 0) {
     return (
@@ -174,7 +245,6 @@ export default function AttendeesPage() {
       
       {/* ==================== HERO HEADER ==================== */}
       <div className="relative overflow-hidden rounded-3xl bg-[#0C0D0D] text-white p-6 sm:p-8 shadow-2xl border border-white/10">
-        {/* Mint Glass Backdrop Glow */}
         <div className="absolute -top-24 -right-24 w-96 h-96 bg-[#ECF4EE]/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-[#ECF4EE]/5 rounded-full blur-2xl pointer-events-none" />
 
@@ -201,12 +271,20 @@ export default function AttendeesPage() {
               <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
               Sync
             </button>
+            
             <button
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-white border border-white/15 backdrop-blur-md transition-all active:scale-95"
+              onClick={handleExport}
+              disabled={isLoading || isExporting || attendees.length === 0}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-white border border-white/15 backdrop-blur-md transition-all active:scale-95 disabled:opacity-50"
             >
-              <Download className="h-3.5 w-3.5" />
-              Export
+              {isExporting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Download className="h-3.5 w-3.5" />
+              )}
+              {isExporting ? 'Exporting...' : 'Export'}
             </button>
+            
             <button
               onClick={() => router.push('/dashboard/attendees/create')}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold bg-[#ECF4EE] text-[#0C0D0D] hover:bg-white transition-all shadow-lg shadow-[#ECF4EE]/10 active:scale-95"
@@ -231,9 +309,9 @@ export default function AttendeesPage() {
           <div className="mt-4">
             <div className="text-3xl sm:text-4xl font-extrabold text-[#0C0D0D] tracking-tight">{total}</div>
             <div className="mt-2 flex items-center gap-2 text-xs font-medium text-[#0C0D0D]/60">
-              <span className="font-semibold">{attendees.filter(a => a.gender === 'Male').length} Male</span>
+              <span className="font-semibold">{maleCount} Male</span>
               <span>•</span>
-              <span className="font-semibold">{attendees.filter(a => a.gender === 'Female').length} Female</span>
+              <span className="font-semibold">{femaleCount} Female</span>
             </div>
           </div>
         </div>
@@ -250,7 +328,7 @@ export default function AttendeesPage() {
             <div className="text-3xl sm:text-4xl font-extrabold text-[#0C0D0D] tracking-tight">{arrived}</div>
             <div className="mt-2 flex items-center gap-1.5 text-xs font-medium text-[#0C0D0D]/60">
               <span className="inline-flex items-center font-bold bg-[#ECF4EE] text-[#0C0D0D] px-2 py-0.5 rounded-lg text-[11px]">
-                {total > 0 ? Math.round((arrived / total) * 100) : 0}%
+                {arrivalRate}%
               </span>
               <span>completion rate</span>
             </div>
@@ -285,7 +363,7 @@ export default function AttendeesPage() {
             </div>
           </div>
           <div className="mt-4">
-            <div className="text-3xl sm:text-4xl font-extrabold text-[#0C0D0D] tracking-tight">{regions?.length || 0}</div>
+            <div className="text-3xl sm:text-4xl font-extrabold text-[#0C0D0D] tracking-tight">{regionCount}</div>
             <div className="mt-2 text-xs font-medium text-[#0C0D0D]/60">
               Geographical distribution
             </div>
@@ -332,8 +410,8 @@ export default function AttendeesPage() {
               className="px-4 py-2.5 bg-[#FAFAFA] border border-[#ECF4EE] rounded-2xl text-xs font-semibold text-[#0C0D0D] focus:outline-none focus:ring-2 focus:ring-[#0C0D0D] transition-all cursor-pointer h-11"
             >
               <option value="all">All Genders</option>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
             </select>
 
             <select
@@ -356,22 +434,40 @@ export default function AttendeesPage() {
             <thead>
               <tr className="bg-[#FAFAFA] border-b border-[#ECF4EE]">
                 <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-[#0C0D0D]/50">
-                  Attendee Info
+                  <div className="flex items-center gap-2">
+                    <User className="h-3.5 w-3.5" />
+                    Attendee Info
+                  </div>
                 </th>
                 <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-[#0C0D0D]/50">
-                  Contact
+                  <div className="flex items-center gap-2">
+                    <AtSign className="h-3.5 w-3.5" />
+                    Contact
+                  </div>
                 </th>
                 <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-[#0C0D0D]/50">
-                  Region & Gender
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-3.5 w-3.5" />
+                    Region & Gender
+                  </div>
                 </th>
                 <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-[#0C0D0D]/50">
-                  Housing Allocation
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-3.5 w-3.5" />
+                    Housing
+                  </div>
                 </th>
                 <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-[#0C0D0D]/50">
-                  Status
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Status
+                  </div>
                 </th>
                 <th className="px-6 py-4 text-right text-[10px] font-extrabold uppercase tracking-widest text-[#0C0D0D]/50">
-                  Actions
+                  <div className="flex items-center justify-end gap-2">
+                    <Calendar className="h-3.5 w-3.5" />
+                    Actions
+                  </div>
                 </th>
               </tr>
             </thead>
@@ -407,54 +503,69 @@ export default function AttendeesPage() {
                           <p className="text-sm font-bold text-[#0C0D0D] group-hover:text-black">
                             {attendee.first_name} {attendee.last_name}
                           </p>
-                          <p className="text-[11px] font-mono font-medium text-[#0C0D0D]/40 mt-0.5">
-                            {attendee.unique_id}
-                          </p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <Hash className="h-3 w-3 text-[#0C0D0D]/30" />
+                            <p className="text-[11px] font-mono font-medium text-[#0C0D0D]/40">
+                              {attendee.unique_id}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </td>
 
                     {/* Contact Info */}
                     <td className="px-6 py-4">
-                      <div className="space-y-0.5">
-                        <p className="text-xs font-semibold text-[#0C0D0D]">{attendee.email}</p>
-                        <p className="text-[11px] text-[#0C0D0D]/50">{attendee.phone}</p>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <Mail className="h-3 w-3 text-[#0C0D0D]/40" />
+                          <p className="text-xs font-semibold text-[#0C0D0D]">{attendee.email}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Phone className="h-3 w-3 text-[#0C0D0D]/40" />
+                          <p className="text-[11px] text-[#0C0D0D]/50">{attendee.phone}</p>
+                        </div>
                       </div>
                     </td>
 
-                    {/* Region */}
+                    {/* Region & Gender */}
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-[#0C0D0D]">{attendee.region}</span>
-                        <span className="text-[10px] font-bold text-[#0C0D0D] bg-[#ECF4EE] px-2 py-0.5 rounded-md border border-[#ECF4EE]">
-                          {attendee.gender}
-                        </span>
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <MapPin className="h-3 w-3 text-[#0C0D0D]/40" />
+                          <span className="text-xs font-bold text-[#0C0D0D]">{attendee.region}</span>
+                        </div>
+                        <Badge variant="info" className="text-[10px] font-bold px-2.5 py-0.5 rounded-lg border bg-[#ECF4EE] text-[#0C0D0D] border-[#d2e5d7] self-start">
+                          {attendee.gender.charAt(0).toUpperCase() + attendee.gender.slice(1)}
+                        </Badge>
                       </div>
                     </td>
 
-                    {/* Room */}
+                    {/* Housing */}
                     <td className="px-6 py-4">
                       {attendee.dorm_cache?.roomNumber ? (
-                        <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0C0D0D] bg-[#FAFAFA] border border-[#ECF4EE] px-3 py-1 rounded-xl">
+                        <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0C0D0D] bg-[#FAFAFA] border border-[#ECF4EE] px-3 py-1.5 rounded-xl">
                           <DoorOpen className="h-3.5 w-3.5 text-[#0C0D0D]/50" />
                           <span>Rm {attendee.dorm_cache.roomNumber}</span>
                           <span className="text-[#0C0D0D]/20">•</span>
                           <span className="text-[#0C0D0D]/60">Bed {attendee.dorm_cache.bedNumber}</span>
                         </div>
                       ) : (
-                        <span className="text-xs text-[#0C0D0D]/30 italic font-medium">Unassigned</span>
+                        <span className="text-xs text-[#0C0D0D]/30 italic font-medium flex items-center gap-1.5">
+                          <DoorOpen className="h-3 w-3" />
+                          Unassigned
+                        </span>
                       )}
                     </td>
 
                     {/* Status */}
                     <td className="px-6 py-4">
                       {attendee.arrived ? (
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-[#ECF4EE] text-[#0C0D0D] border border-[#ECF4EE]">
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold bg-[#ECF4EE] text-[#0C0D0D] border border-[#ECF4EE]">
                           <CheckCircle2 className="h-3.5 w-3.5 text-[#0C0D0D]" />
                           <span>Checked In</span>
                         </div>
                       ) : (
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200/80">
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200/80">
                           <Clock className="h-3.5 w-3.5 text-amber-600" />
                           <span>Pending</span>
                         </div>
@@ -480,6 +591,13 @@ export default function AttendeesPage() {
                           title="View Dossier"
                         >
                           <Eye className="h-4 w-4" />
+                        </button>
+                        <button
+                          className="p-2 rounded-xl hover:bg-[#ECF4EE]/50 text-[#0C0D0D]/60 hover:text-[#0C0D0D] transition-all"
+                          onClick={() => handleEdit(attendee._id)}
+                          title="Edit Attendee"
+                        >
+                          <Edit className="h-4 w-4" />
                         </button>
                         <button
                           className="p-2 rounded-xl hover:bg-red-50 text-red-400 hover:text-red-600 transition-all"
@@ -566,11 +684,14 @@ export default function AttendeesPage() {
                   <h3 className="text-xl font-extrabold text-[#0C0D0D] tracking-tight">
                     {selectedAttendee.first_name} {selectedAttendee.last_name}
                   </h3>
-                  <p className="text-xs font-mono text-[#0C0D0D]/50">{selectedAttendee.unique_id}</p>
+                  <div className="flex items-center gap-1.5">
+                    <Hash className="h-3 w-3 text-[#0C0D0D]/40" />
+                    <p className="text-xs font-mono text-[#0C0D0D]/50">{selectedAttendee.unique_id}</p>
+                  </div>
 
                   <div className="flex items-center gap-2 pt-1">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-[#ECF4EE] text-[#0C0D0D]">
-                      {selectedAttendee.gender}
+                      {selectedAttendee.gender.charAt(0).toUpperCase() + selectedAttendee.gender.slice(1)}
                     </span>
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-[10px] font-bold ${
                       selectedAttendee.arrived ? 'bg-[#0C0D0D] text-white' : 'bg-amber-100 text-amber-900'
@@ -656,6 +777,16 @@ export default function AttendeesPage() {
                     Check In Attendee
                   </button>
                 )}
+                <button
+                  className="inline-flex items-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200/60 font-bold rounded-2xl h-11 px-5 text-xs transition-all active:scale-95"
+                  onClick={() => {
+                    handleEdit(selectedAttendee._id);
+                    setViewModalOpen(false);
+                  }}
+                >
+                  <Edit className="h-4 w-4" />
+                  Edit
+                </button>
                 <button
                   className="inline-flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/60 font-bold rounded-2xl h-11 px-5 text-xs ml-auto transition-all active:scale-95"
                   onClick={() => handleDelete(selectedAttendee._id)}

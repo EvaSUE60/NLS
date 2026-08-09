@@ -26,6 +26,7 @@ export const useAttendee = () => {
     fetchArrivalStats,
     searchAttendees,
     importAttendees,
+    exportAttendees, // ✅ Add this
     clearSelected,
     clearError,
     resetFilters,
@@ -115,8 +116,9 @@ export const useAttendee = () => {
     goToPage,
     setLimit,
 
-    // ==================== IMPORT ====================
+    // ==================== IMPORT & EXPORT ====================
     import: importAttendees,
+    export: exportAttendees, // ✅ Add this
 
     // ==================== UTILITY ====================
     clearSelected,

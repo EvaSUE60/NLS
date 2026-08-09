@@ -5,11 +5,14 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from '@/src/lib/query/queryClient';
 import { Toaster } from 'sonner';
+import { AuthProvider } from '@/src/components/providers/AuthProviders'; // ✅ Import AuthProvider
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
-      {children}
+      <AuthProvider>
+        {children}
+      </AuthProvider>
       <Toaster 
         position="top-right"
         richColors

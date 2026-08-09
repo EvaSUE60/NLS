@@ -12,22 +12,18 @@ import {
 
 export const dormService = {
   // ==================== AUTO-ASSIGN ATTENDEES ====================
-  // POST /api/dorm/assign
   autoAssign: () =>
     apiClient.post<AutoAssignResponse>('/dorm/assign'),
 
   // ==================== RESET DORM ASSIGNMENTS ====================
-  // POST /api/dorm/reset (requires confirm: true)
   resetDorm: (confirm: boolean = true) =>
     apiClient.post<ResetDormResponse>('/dorm/reset', { confirm }),
 
   // ==================== GET DORM STATS ====================
-  // GET /api/dorm/stats
   getDormStats: () =>
     apiClient.get<DormStatsResponse>('/dorm/stats'),
 
   // ==================== GET DORM ASSIGNMENTS ====================
-  // GET /api/dorm/assignments - May not exist, handle gracefully
   getAssignments: (filters?: AssignmentFilters) => {
     const queryParams = new URLSearchParams();
     if (filters?.status) queryParams.append('status', filters.status);
@@ -39,12 +35,22 @@ export const dormService = {
   },
 
   // ==================== GET ASSIGNMENT BY ID ====================
-  // GET /api/dorm/assignments/[id]
   getAssignment: (id: string) =>
     apiClient.get<{ success: boolean; data: any }>(`/dorm/assignments/${id}`),
 
   // ==================== REMOVE ASSIGNMENT ====================
-  // DELETE /api/dorm/assignments/[id]
   removeAssignment: (id: string) =>
     apiClient.delete<{ success: boolean; message: string }>(`/dorm/assignments/${id}`),
+
+  // ==================== ✅ EXPORT DORM STATS ====================
+  exportDormStats: (filters?: { type?: string; buildingId?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.type) params.append('type', filters.type);
+    if (filters?.buildingId) params.append('buildingId', filters.buildingId);
+
+    const queryString = params.toString();
+    return apiClient.get(`/dorm/export${queryString ? `?${queryString}` : ''}`, {
+      responseType: 'blob',
+    });
+  },
 };

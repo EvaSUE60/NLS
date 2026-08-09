@@ -68,7 +68,7 @@ const RoomSchema = new Schema<IRoom>(
       type: Number,
       required: true,
       min: 2,
-      max: 25,
+      max: 40,
       default: 4,
     },
     occupants: [

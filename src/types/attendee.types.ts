@@ -1,6 +1,7 @@
 // src/types/attendee.types.ts
 
 export interface Attendee {
+  arrived_at: string;
   _id: string;
   unique_id: string;
   first_name: string;
@@ -63,24 +64,25 @@ export interface AttendeeResponse {
     filters: {
       regions: string[];
     };
+    stats?: AttendeeStats;
   };
 }
 
 export interface AttendeeStats {
-  summary: {
+  summary?: {
     total_attendees: number;
     arrived: number;
     not_arrived: number;
     arrival_rate: string;
     recent_arrivals: number;
   };
-  by_region: Array<{
+  by_region?: Array<{
     _id: string;
     total: number;
     arrived: number;
     not_arrived: number;
   }>;
-  recent_check_ins: Array<{
+  recent_check_ins?: Array<{
     _id: string;
     unique_id: string;
     first_name: string;
@@ -89,6 +91,16 @@ export interface AttendeeStats {
     arrival_time: string;
     arrival_method: string;
   }>;
+  total?: {
+    male: number;
+    female: number;
+    total: number;
+  };
+  filtered?: {
+    male: number;
+    female: number;
+    total: number;
+  };
 }
 
 export interface CreateAttendeeData {

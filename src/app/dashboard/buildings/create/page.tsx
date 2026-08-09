@@ -50,6 +50,7 @@ export default function CreateBuildingPage() {
     if (!formData.total_floors || formData.total_floors < 1) newErrors.total_floors = 'At least 1 floor is required';
     if (!formData.rooms_per_floor || formData.rooms_per_floor < 1) newErrors.rooms_per_floor = 'At least 1 room per floor is required';
     if (!formData.default_capacity || formData.default_capacity < 2) newErrors.default_capacity = 'Capacity must be at least 2';
+    if (formData.default_capacity > 25) newErrors.default_capacity = 'Capacity cannot exceed 25';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -78,6 +79,9 @@ export default function CreateBuildingPage() {
 
   const totalRooms = formData.total_floors * formData.rooms_per_floor;
   const totalBeds = totalRooms * formData.default_capacity;
+
+  // Generate capacity options from 2 to 25
+  const capacityOptions = Array.from({ length: 24 }, (_, i) => i + 2);
 
   return (
     <div className="space-y-8 max-w-[1600px] mx-auto p-2 sm:p-4">
@@ -190,7 +194,7 @@ export default function CreateBuildingPage() {
                   <input
                     type="number"
                     min="1"
-                    max="20"
+                    max="30"
                     value={formData.rooms_per_floor}
                     onChange={(e) => handleChange('rooms_per_floor', parseInt(e.target.value) || 0)}
                     className={`w-full px-4 py-2.5 bg-white border rounded-2xl text-xs font-medium text-[#0C0D0D] focus:outline-none transition-all shadow-2xs ${
@@ -202,7 +206,7 @@ export default function CreateBuildingPage() {
                   {errors.rooms_per_floor && <p className="mt-1.5 text-xs font-semibold text-rose-600">{errors.rooms_per_floor}</p>}
                 </div>
 
-                {/* Room Capacity */}
+                {/* Room Capacity - Updated to 25 */}
                 <div>
                   <label className="block text-xs font-bold text-[#0C0D0D] uppercase tracking-wider mb-2">
                     Default Room Capacity <span className="text-rose-500">*</span>
@@ -212,11 +216,15 @@ export default function CreateBuildingPage() {
                     onChange={(e) => handleChange('default_capacity', parseInt(e.target.value))}
                     className="w-full px-4 py-2.5 bg-white border border-[#ECF4EE] focus:border-[#0C0D0D]/30 rounded-2xl text-xs font-medium text-[#0C0D0D] focus:outline-none transition-all shadow-2xs cursor-pointer"
                   >
-                    <option value="2">2 beds per room</option>
-                    <option value="3">3 beds per room</option>
-                    <option value="4">4 beds per room</option>
-                    <option value="6">6 beds per room</option>
+                    {capacityOptions.map((num) => (
+                      <option key={num} value={num}>
+                        {num} {num === 1 ? 'bed' : 'beds'} per room
+                      </option>
+                    ))}
                   </select>
+                  <p className="mt-1 text-[10px] text-[#0C0D0D]/40 font-medium">
+                    Maximum capacity is 25 beds per room
+                  </p>
                 </div>
 
                 {/* Address */}
@@ -306,11 +314,11 @@ export default function CreateBuildingPage() {
                 <div className="pt-3 border-t border-[#0C0D0D]/10 space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="text-[#0C0D0D]/70 font-bold">Total Calculated Rooms</span>
-                    <span className="text-sm font-black text-[#0C0D0D]">{totalRooms}</span>
+                    <span className="text-sm font-black text-[#0C0D0D]">{totalRooms.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-[#0C0D0D]/70 font-bold">Total Expected Beds</span>
-                    <span className="text-base font-black text-emerald-700">{totalBeds}</span>
+                    <span className="text-base font-black text-emerald-700">{totalBeds.toLocaleString()}</span>
                   </div>
                 </div>
               </div>

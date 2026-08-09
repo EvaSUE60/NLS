@@ -22,8 +22,10 @@ import {
   List,
   Loader2,
   Sparkles,
-  Layers,
-  BedDouble
+  Power,
+  PowerOff,
+  EyeOff,
+  Eye as EyeIcon
 } from 'lucide-react';
 import { Badge } from '@/src/components/ui/Badge';
 import { useRoom } from '@/src/hooks/useRoom';
@@ -41,6 +43,8 @@ export default function RoomsPage() {
     deleteRoom,
     refetch,
     clearError,
+    toggleRoomStatus,
+    isToggling,
   } = useRoom();
 
   const { buildings, fetchBuildings } = useBuilding();
@@ -53,6 +57,8 @@ export default function RoomsPage() {
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [allFloors, setAllFloors] = useState<number[]>([]);
+  const [showInactive, setShowInactive] = useState(false);
 
   // Fetch buildings and rooms on mount
   useEffect(() => {
@@ -60,15 +66,52 @@ export default function RoomsPage() {
     fetchRooms();
   }, []);
 
-  // Handle filter changes
+  // Update allFloors whenever rooms change
   useEffect(() => {
+    if (rooms.length > 0) {
+      const floors = [...new Set(rooms.map((r) => r.floor))].sort((a, b) => a - b);
+      setAllFloors(floors);
+    }
+  }, [rooms]);
+
+  // Handle filter changes with debounce
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      applyFilters();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [selectedBuilding, selectedFloor, selectedStatus, showInactive]);
+
+  const applyFilters = () => {
     const filters: any = {};
     if (selectedBuilding !== 'all') filters.building_id = selectedBuilding;
     if (selectedFloor !== 'all') filters.floor = parseInt(selectedFloor);
     if (selectedStatus === 'available') filters.is_full = false;
     if (selectedStatus === 'occupied') filters.is_full = true;
+    
+    if (showInactive) {
+      filters.show_inactive = 'true';
+    }
+    
     fetchRooms(filters);
-  }, [selectedBuilding, selectedFloor, selectedStatus, itemsPerPage]);
+  };
+
+  // ==================== TOGGLE STATUS HANDLER ====================
+  const handleToggleStatus = async (id: string, roomNumber: string, currentStatus: boolean) => {
+    const action = currentStatus ? 'deactivate' : 'activate';
+    
+    if (!confirm(`Are you sure you want to ${action} room "${roomNumber}"?`)) {
+      return;
+    }
+
+    try {
+      await toggleRoomStatus(id, !currentStatus);
+      toast.success(`Room ${roomNumber} ${action}d successfully`);
+      await refetch();
+    } catch (error: any) {
+      toast.error(error?.message || `Failed to ${action} room`);
+    }
+  };
 
   const handleDelete = async (id: string, roomNumber: string) => {
     if (!confirm(`Are you sure you want to delete room "${roomNumber}"?`)) {
@@ -104,12 +147,14 @@ export default function RoomsPage() {
   const handleLimitChange = (limit: number) => {
     setItemsPerPage(limit);
     setCurrentPage(1);
-    const filters: any = {};
-    if (selectedBuilding !== 'all') filters.building_id = selectedBuilding;
-    if (selectedFloor !== 'all') filters.floor = parseInt(selectedFloor);
-    if (selectedStatus === 'available') filters.is_full = false;
-    if (selectedStatus === 'occupied') filters.is_full = true;
-    fetchRooms(filters);
+  };
+
+  const getFloorDisplay = (floor: number) => {
+    if (floor === 0) return 'Ground';
+    if (floor === 1) return '1st';
+    if (floor === 2) return '2nd';
+    if (floor === 3) return '3rd';
+    return `${floor}th`;
   };
 
   const getStatusBadge = (status: string) => {
@@ -151,15 +196,23 @@ export default function RoomsPage() {
     }
   };
 
-  // Get unique floors from rooms
-  const floors = [...new Set(rooms.map((r) => r.floor))].sort();
-
-  // Filter rooms by search
+  // Filter rooms by search and show/hide inactive
   const filteredRooms = rooms.filter((room) => {
-    return room.room_number.toLowerCase().includes(searchQuery.toLowerCase());
+    const searchLower = searchQuery.toLowerCase();
+    const matchesSearch = 
+      room.room_number.toLowerCase().includes(searchLower) ||
+      (room.building_name && room.building_name.toLowerCase().includes(searchLower)) ||
+      room.floor_name.toLowerCase().includes(searchLower);
+    
+    if (!showInactive && !room.is_active) {
+      return false;
+    }
+    
+    return matchesSearch;
   });
 
-  // Pagination
+  const inactiveCount = rooms.filter(r => !r.is_active).length;
+
   const totalPages = Math.ceil(filteredRooms.length / itemsPerPage);
   const paginatedRooms = filteredRooms.slice(
     (currentPage - 1) * itemsPerPage,
@@ -223,10 +276,7 @@ export default function RoomsPage() {
                 New Room
               </button>
             </Link>
-            <button className="flex items-center gap-2 bg-white/80 hover:bg-white text-[#0C0D0D] border border-[#0C0D0D]/10 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all shadow-2xs cursor-pointer">
-              <Download className="h-4 w-4 text-[#0C0D0D]/60" />
-              Export
-            </button>
+            
             <button 
               onClick={handleRefresh}
               className="p-2.5 bg-white/80 hover:bg-white text-[#0C0D0D] border border-[#0C0D0D]/10 rounded-2xl transition-all shadow-2xs cursor-pointer"
@@ -294,7 +344,7 @@ export default function RoomsPage() {
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#0C0D0D]/40" />
             <input
               type="text"
-              placeholder="Search by room number..."
+              placeholder="Search by room number, building, or floor..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#ECF4EE] focus:border-[#0C0D0D]/30 rounded-2xl text-xs font-medium text-[#0C0D0D] placeholder-[#0C0D0D]/40 focus:outline-none transition-all shadow-2xs"
@@ -304,39 +354,77 @@ export default function RoomsPage() {
           <div className="flex items-center gap-3 w-full md:w-auto flex-wrap">
             <select
               value={selectedBuilding}
-              onChange={(e) => setSelectedBuilding(e.target.value)}
+              onChange={(e) => {
+                setSelectedBuilding(e.target.value);
+                setCurrentPage(1);
+              }}
               className="px-4 py-2.5 bg-white border border-[#ECF4EE] rounded-2xl text-xs font-medium text-[#0C0D0D] focus:outline-none focus:border-[#0C0D0D]/30 shadow-2xs cursor-pointer min-w-[150px]"
             >
-              <option value="all">All Buildings</option>
+              <option value="all">🏢 All Buildings</option>
               {buildings.map((b) => (
-                <option key={b._id} value={b._id}>{b.name}</option>
+                <option key={b._id} value={b._id}>
+                  {b.type === 'men' ? '👨' : '👩'} {b.name}
+                </option>
               ))}
             </select>
 
             <select
               value={selectedFloor}
-              onChange={(e) => setSelectedFloor(e.target.value)}
+              onChange={(e) => {
+                setSelectedFloor(e.target.value);
+                setCurrentPage(1);
+              }}
               className="px-4 py-2.5 bg-white border border-[#ECF4EE] rounded-2xl text-xs font-medium text-[#0C0D0D] focus:outline-none focus:border-[#0C0D0D]/30 shadow-2xs cursor-pointer min-w-[130px]"
             >
-              <option value="all">All Floors</option>
-              {floors.map((floor) => (
+              <option value="all">📊 All Floors</option>
+              {allFloors.map((floor) => (
                 <option key={floor} value={floor}>
-                  {floor === 1 ? 'Ground' : `${floor}${floor === 2 ? 'nd' : floor === 3 ? 'rd' : 'th'} Floor`}
+                  {getFloorDisplay(floor)}
                 </option>
               ))}
             </select>
 
             <select
               value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
+              onChange={(e) => {
+                setSelectedStatus(e.target.value);
+                setCurrentPage(1);
+              }}
               className="px-4 py-2.5 bg-white border border-[#ECF4EE] rounded-2xl text-xs font-medium text-[#0C0D0D] focus:outline-none focus:border-[#0C0D0D]/30 shadow-2xs cursor-pointer min-w-[130px]"
             >
-              <option value="all">All Status</option>
-              <option value="available">Available</option>
-              <option value="occupied">Occupied</option>
+              <option value="all">🔄 All Status</option>
+              <option value="available">✅ Available</option>
+              <option value="occupied">❌ Occupied</option>
             </select>
 
             <div className="flex items-center gap-2 ml-auto">
+              {/* ✅ Show Inactive Toggle */}
+              <button
+                onClick={() => setShowInactive(!showInactive)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+                  showInactive
+                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                    : 'bg-white text-[#0C0D0D]/50 border border-[#ECF4EE] hover:border-[#0C0D0D]/20'
+                }`}
+                title={showInactive ? 'Hide inactive rooms' : 'Show inactive rooms'}
+              >
+                {showInactive ? (
+                  <EyeIcon className="h-3.5 w-3.5" />
+                ) : (
+                  <EyeOff className="h-3.5 w-3.5" />
+                )}
+                <span className="hidden sm:inline">
+                  {showInactive ? 'Showing All' : 'Hide Inactive'}
+                </span>
+                {inactiveCount > 0 && (
+                  <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${
+                    showInactive ? 'bg-amber-200 text-amber-800' : 'bg-gray-200 text-gray-600'
+                  }`}>
+                    {inactiveCount}
+                  </span>
+                )}
+              </button>
+
               <div className="flex border border-[#ECF4EE] bg-white rounded-2xl p-1 shadow-2xs">
                 <button
                   onClick={() => setViewMode('grid')}
@@ -359,24 +447,26 @@ export default function RoomsPage() {
                   <List className="h-4 w-4" />
                 </button>
               </div>
-
-              <button 
-                onClick={handleRefresh}
-                className="p-2.5 bg-white border border-[#ECF4EE] rounded-2xl text-[#0C0D0D]/70 hover:text-[#0C0D0D] hover:border-[#0C0D0D]/20 transition-all shadow-2xs cursor-pointer"
-              >
-                <RefreshCw className="h-4 w-4" />
-              </button>
             </div>
           </div>
         </div>
 
         {/* Active Filters */}
-        {(selectedBuilding !== 'all' || selectedFloor !== 'all' || selectedStatus !== 'all' || searchQuery) && (
+        {(selectedBuilding !== 'all' || selectedFloor !== 'all' || selectedStatus !== 'all' || searchQuery || showInactive) && (
           <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-[#ECF4EE]">
-            <span className="text-xs font-bold text-[#0C0D0D]/50 uppercase tracking-wider">Active:</span>
+            <span className="text-xs font-bold text-[#0C0D0D]/50 uppercase tracking-wider">Active Filters:</span>
+            {showInactive && (
+              <Badge variant="info" className="flex items-center gap-1.5 bg-amber-50 text-amber-800 border-amber-200 text-[10px] font-bold px-2.5 py-1 rounded-xl">
+                <EyeIcon className="h-3 w-3" />
+                Showing Inactive
+                <button onClick={() => setShowInactive(false)} className="hover:text-rose-600 cursor-pointer">
+                  <XCircle className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
             {selectedBuilding !== 'all' && (
               <Badge variant="info" className="flex items-center gap-1.5 bg-[#ECF4EE] text-[#0C0D0D] border-[#d2e5d7] text-[10px] font-bold px-2.5 py-1 rounded-xl">
-                Building: {buildings.find(b => b._id === selectedBuilding)?.name}
+                🏢 {buildings.find(b => b._id === selectedBuilding)?.name || 'Building'}
                 <button onClick={() => setSelectedBuilding('all')} className="hover:text-rose-600 cursor-pointer">
                   <XCircle className="h-3 w-3" />
                 </button>
@@ -384,7 +474,7 @@ export default function RoomsPage() {
             )}
             {selectedFloor !== 'all' && (
               <Badge variant="info" className="flex items-center gap-1.5 bg-[#ECF4EE] text-[#0C0D0D] border-[#d2e5d7] text-[10px] font-bold px-2.5 py-1 rounded-xl">
-                Floor: {selectedFloor}
+                📊 {getFloorDisplay(parseInt(selectedFloor))}
                 <button onClick={() => setSelectedFloor('all')} className="hover:text-rose-600 cursor-pointer">
                   <XCircle className="h-3 w-3" />
                 </button>
@@ -392,7 +482,7 @@ export default function RoomsPage() {
             )}
             {selectedStatus !== 'all' && (
               <Badge variant="info" className="flex items-center gap-1.5 bg-[#ECF4EE] text-[#0C0D0D] border-[#d2e5d7] text-[10px] font-bold px-2.5 py-1 rounded-xl">
-                Status: {selectedStatus === 'available' ? 'Available' : 'Occupied'}
+                {selectedStatus === 'available' ? '✅ Available' : '❌ Occupied'}
                 <button onClick={() => setSelectedStatus('all')} className="hover:text-rose-600 cursor-pointer">
                   <XCircle className="h-3 w-3" />
                 </button>
@@ -400,7 +490,7 @@ export default function RoomsPage() {
             )}
             {searchQuery && (
               <Badge variant="info" className="flex items-center gap-1.5 bg-[#ECF4EE] text-[#0C0D0D] border-[#d2e5d7] text-[10px] font-bold px-2.5 py-1 rounded-xl">
-                Query: {searchQuery}
+                🔍 {searchQuery}
                 <button onClick={() => setSearchQuery('')} className="hover:text-rose-600 cursor-pointer">
                   <XCircle className="h-3 w-3" />
                 </button>
@@ -412,7 +502,9 @@ export default function RoomsPage() {
                 setSelectedFloor('all');
                 setSelectedStatus('all');
                 setSearchQuery('');
-                refetch();
+                setShowInactive(false);
+                setCurrentPage(1);
+                fetchRooms({});
               }}
               className="text-xs font-bold text-[#0C0D0D] hover:underline ml-1 cursor-pointer"
             >
@@ -420,6 +512,16 @@ export default function RoomsPage() {
             </button>
           </div>
         )}
+
+        {/* Results count */}
+        <div className="text-xs font-medium text-[#0C0D0D]/50 pt-1">
+          Found <span className="font-bold text-[#0C0D0D]">{filteredRooms.length}</span> rooms
+          {selectedBuilding !== 'all' && ` in ${buildings.find(b => b._id === selectedBuilding)?.name || ''}`}
+          {selectedFloor !== 'all' && ` on ${getFloorDisplay(parseInt(selectedFloor))}`}
+          {selectedStatus !== 'all' && ` that are ${selectedStatus}`}
+          {searchQuery && ` matching "${searchQuery}"`}
+          {showInactive && ` (including ${inactiveCount} inactive)`}
+        </div>
       </div>
 
       {/* ==================== ROOMS DISPLAY ==================== */}
@@ -430,30 +532,48 @@ export default function RoomsPage() {
               <DoorOpen className="h-12 w-12 text-[#0C0D0D]/20 mx-auto mb-3" />
               <p className="text-base font-extrabold text-[#0C0D0D]">No rooms found</p>
               <p className="text-xs text-[#0C0D0D]/50 font-medium mt-1">
-                {searchQuery ? 'Try adjusting your search filters' : 'Create your first room record'}
+                {searchQuery || selectedBuilding !== 'all' || selectedFloor !== 'all' || selectedStatus !== 'all' || showInactive
+                  ? 'Try adjusting your filters'
+                  : 'Create your first room record'}
               </p>
-              <Link href="/dashboard/rooms/create">
-                <button className="mt-4 inline-flex items-center gap-2 bg-[#0C0D0D] text-[#ECF4EE] hover:bg-[#0C0D0D]/90 transition-all px-4 py-2.5 rounded-2xl text-xs font-bold cursor-pointer">
-                  <Plus className="h-4 w-4" />
-                  Add Room
-                </button>
-              </Link>
+              <button
+                onClick={() => {
+                  setSelectedBuilding('all');
+                  setSelectedFloor('all');
+                  setSelectedStatus('all');
+                  setSearchQuery('');
+                  setShowInactive(false);
+                  setCurrentPage(1);
+                  fetchRooms({});
+                }}
+                className="mt-4 inline-flex items-center gap-2 bg-[#0C0D0D] text-[#ECF4EE] hover:bg-[#0C0D0D]/90 transition-all px-4 py-2.5 rounded-2xl text-xs font-bold cursor-pointer"
+              >
+                Clear All Filters
+              </button>
             </div>
           ) : (
             paginatedRooms.map((room) => (
               <div
                 key={room._id}
-                className="bg-white rounded-3xl border border-[#ECF4EE] shadow-xs hover:border-[#0C0D0D]/20 hover:shadow-md transition-all duration-200 overflow-hidden group cursor-pointer"
+                className={`bg-white rounded-3xl border shadow-xs hover:shadow-md transition-all duration-200 overflow-hidden group cursor-pointer ${
+                  room.is_active 
+                    ? 'border-[#ECF4EE] hover:border-[#0C0D0D]/20' 
+                    : 'border-gray-200 hover:border-gray-300 opacity-75'
+                }`}
                 onClick={() => router.push(`/dashboard/rooms/${room._id}`)}
               >
                 <div className="p-5">
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-xl bg-[#ECF4EE] text-[#0C0D0D]">
+                        <div className={`p-2 rounded-xl ${
+                          room.is_active ? 'bg-[#ECF4EE] text-[#0C0D0D]' : 'bg-gray-100 text-gray-400'
+                        }`}>
                           <DoorOpen className="h-4 w-4" />
                         </div>
-                        <h3 className="font-extrabold text-[#0C0D0D] text-base group-hover:text-emerald-700 transition-colors">
+                        <h3 className={`font-extrabold text-base group-hover:text-emerald-700 transition-colors ${
+                          room.is_active ? 'text-[#0C0D0D]' : 'text-gray-400'
+                        }`}>
                           Room {room.room_number}
                         </h3>
                       </div>
@@ -461,44 +581,90 @@ export default function RoomsPage() {
                         {room.floor_name} · {room.building_name || 'Building'}
                       </p>
                     </div>
-                    <Badge variant="info" className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border ${getStatusBadge(room.check_in_status)}`}>
-                      <span className="flex items-center gap-1">
-                        {getStatusIcon(room.check_in_status)}
-                        {getStatusLabel(room.check_in_status)}
-                      </span>
-                    </Badge>
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge variant="info" className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border ${
+                        room.is_active ? getStatusBadge(room.check_in_status) : 'bg-gray-100 text-gray-400 border-gray-200'
+                      }`}>
+                        <span className="flex items-center gap-1">
+                          {room.is_active ? getStatusIcon(room.check_in_status) : <XCircle className="h-3 w-3 text-gray-400" />}
+                          {room.is_active ? getStatusLabel(room.check_in_status) : 'Inactive'}
+                        </span>
+                      </Badge>
+                      <Badge variant="info" className={`text-[9px] font-bold px-2 py-0.5 rounded-lg border ${
+                        room.is_active 
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                          : 'bg-gray-100 text-gray-500 border-gray-200'
+                      }`}>
+                        {room.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </div>
                   </div>
 
                   <div className="mt-4 grid grid-cols-2 gap-2">
-                    <div className="bg-[#ECF4EE]/50 border border-[#ECF4EE] rounded-2xl p-2.5 text-center">
-                      <p className="text-base font-black text-[#0C0D0D]">{room.capacity}</p>
-                      <p className="text-[10px] font-bold text-[#0C0D0D]/50 uppercase tracking-wider">Capacity</p>
+                    <div className={`${
+                      room.is_active ? 'bg-[#ECF4EE]/50 border-[#ECF4EE]' : 'bg-gray-50 border-gray-200'
+                    } border rounded-2xl p-2.5 text-center`}>
+                      <p className={`text-base font-black ${room.is_active ? 'text-[#0C0D0D]' : 'text-gray-400'}`}>
+                        {room.capacity}
+                      </p>
+                      <p className={`text-[10px] font-bold uppercase tracking-wider ${
+                        room.is_active ? 'text-[#0C0D0D]/50' : 'text-gray-400'
+                      }`}>
+                        Capacity
+                      </p>
                     </div>
-                    <div className="bg-[#ECF4EE]/50 border border-[#ECF4EE] rounded-2xl p-2.5 text-center">
-                      <p className={`text-base font-black ${room.current_occupancy > 0 ? 'text-emerald-700' : 'text-[#0C0D0D]/40'}`}>
+                    <div className={`${
+                      room.is_active ? 'bg-[#ECF4EE]/50 border-[#ECF4EE]' : 'bg-gray-50 border-gray-200'
+                    } border rounded-2xl p-2.5 text-center`}>
+                      <p className={`text-base font-black ${room.current_occupancy > 0 ? 'text-emerald-700' : room.is_active ? 'text-[#0C0D0D]/40' : 'text-gray-400'}`}>
                         {room.current_occupancy}
                       </p>
-                      <p className="text-[10px] font-bold text-[#0C0D0D]/50 uppercase tracking-wider">Occupied</p>
+                      <p className={`text-[10px] font-bold uppercase tracking-wider ${
+                        room.is_active ? 'text-[#0C0D0D]/50' : 'text-gray-400'
+                      }`}>
+                        Occupied
+                      </p>
                     </div>
                   </div>
 
-                  <div className="mt-3.5 w-full bg-[#ECF4EE] rounded-full h-2 overflow-hidden">
-                    <div 
-                      className={`h-2 rounded-full transition-all duration-500 ${
-                        room.check_in_status === 'full' ? 'bg-[#0C0D0D]' :
-                        room.check_in_status === 'partial' ? 'bg-amber-500' :
-                        'bg-rose-500'
+                  {room.is_active && (
+                    <div className="mt-3.5 w-full bg-[#ECF4EE] rounded-full h-2 overflow-hidden">
+                      <div 
+                        className={`h-2 rounded-full transition-all duration-500 ${
+                          room.check_in_status === 'full' ? 'bg-[#0C0D0D]' :
+                          room.check_in_status === 'partial' ? 'bg-amber-500' :
+                          'bg-emerald-500'
+                        }`}
+                        style={{ width: `${(room.current_occupancy / room.capacity) * 100}%` }}
+                      />
+                    </div>
+                  )}
+
+                  <div className={`mt-4 pt-3 border-t flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity ${
+                    room.is_active ? 'border-[#ECF4EE]' : 'border-gray-200'
+                  }`}>
+                    {/* Toggle Status Button */}
+                    <button
+                      className={`p-1.5 rounded-xl transition-colors ${
+                        room.is_active 
+                          ? 'hover:bg-amber-50 text-emerald-600 hover:text-amber-600' 
+                          : 'hover:bg-emerald-50 text-gray-400 hover:text-emerald-600'
                       }`}
-                      style={{ width: `${(room.current_occupancy / room.capacity) * 100}%` }}
-                    />
-                  </div>
-
-                  <div className="mt-2 flex items-center justify-between text-[10px] font-bold text-[#0C0D0D]/50 uppercase tracking-wider">
-                    <span>{room.current_occupancy} Occupied</span>
-                    <span>{room.capacity - room.current_occupancy} Free</span>
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-[#ECF4EE] flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleStatus(room._id, room.room_number, room.is_active);
+                      }}
+                      title={room.is_active ? 'Deactivate Room' : 'Activate Room'}
+                      disabled={isToggling}
+                    >
+                      {isToggling ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : room.is_active ? (
+                        <Power className="h-4 w-4" />
+                      ) : (
+                        <PowerOff className="h-4 w-4" />
+                      )}
+                    </button>
                     <button
                       className="p-1.5 rounded-xl hover:bg-[#ECF4EE] text-[#0C0D0D]/60 hover:text-[#0C0D0D] transition-colors"
                       onClick={(e) => {
@@ -550,63 +716,103 @@ export default function RoomsPage() {
                   <th className="px-5 py-3.5 text-left text-[11px] font-black uppercase tracking-wider">Capacity</th>
                   <th className="px-5 py-3.5 text-left text-[11px] font-black uppercase tracking-wider">Occupancy</th>
                   <th className="px-5 py-3.5 text-left text-[11px] font-black uppercase tracking-wider">Status</th>
+                  <th className="px-5 py-3.5 text-left text-[11px] font-black uppercase tracking-wider">Active</th>
                   <th className="px-5 py-3.5 text-right text-[11px] font-black uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#ECF4EE]">
                 {paginatedRooms.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-5 py-12 text-center text-xs font-semibold text-[#0C0D0D]/50">
-                      No rooms found
+                    <td colSpan={8} className="px-5 py-12 text-center text-xs font-semibold text-[#0C0D0D]/50">
+                      No rooms found matching your criteria
                     </td>
                   </tr>
                 ) : (
                   paginatedRooms.map((room) => (
-                    <tr key={room._id} className="hover:bg-[#ECF4EE]/20 transition-colors">
+                    <tr key={room._id} className={`hover:bg-[#ECF4EE]/20 transition-colors ${!room.is_active ? 'opacity-60' : ''}`}>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-xl bg-[#ECF4EE] text-[#0C0D0D]">
+                          <div className={`p-2 rounded-xl ${room.is_active ? 'bg-[#ECF4EE] text-[#0C0D0D]' : 'bg-gray-100 text-gray-400'}`}>
                             <DoorOpen className="h-4 w-4" />
                           </div>
-                          <span className="font-extrabold text-[#0C0D0D] text-sm">{room.room_number}</span>
+                          <span className={`font-extrabold text-sm ${room.is_active ? 'text-[#0C0D0D]' : 'text-gray-400'}`}>
+                            {room.room_number}
+                          </span>
                         </div>
                       </td>
                       <td className="px-5 py-4">
-                        <span className="text-xs font-medium text-[#0C0D0D]/70">{room.floor_name}</span>
+                        <span className={`text-xs font-medium ${room.is_active ? 'text-[#0C0D0D]/70' : 'text-gray-400'}`}>
+                          {room.floor_name}
+                        </span>
                       </td>
                       <td className="px-5 py-4">
-                        <span className="text-xs font-medium text-[#0C0D0D]/70">{room.building_name || 'N/A'}</span>
+                        <span className={`text-xs font-medium ${room.is_active ? 'text-[#0C0D0D]/70' : 'text-gray-400'}`}>
+                          {room.building_name || 'N/A'}
+                        </span>
                       </td>
                       <td className="px-5 py-4">
-                        <span className="text-xs font-extrabold text-[#0C0D0D]">{room.capacity} beds</span>
+                        <span className={`text-xs font-extrabold ${room.is_active ? 'text-[#0C0D0D]' : 'text-gray-400'}`}>
+                          {room.capacity} beds
+                        </span>
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
-                          <span className={`text-xs font-extrabold ${room.current_occupancy > 0 ? 'text-emerald-700' : 'text-[#0C0D0D]/40'}`}>
+                          <span className={`text-xs font-extrabold ${room.current_occupancy > 0 ? 'text-emerald-700' : room.is_active ? 'text-[#0C0D0D]/40' : 'text-gray-400'}`}>
                             {room.current_occupancy}/{room.capacity}
                           </span>
-                          <div className="w-16 bg-[#ECF4EE] rounded-full h-1.5 overflow-hidden">
-                            <div 
-                              className={`h-1.5 rounded-full ${
-                                room.check_in_status === 'full' ? 'bg-[#0C0D0D]' :
-                                room.check_in_status === 'partial' ? 'bg-amber-500' :
-                                'bg-rose-500'
-                              }`}
-                              style={{ width: `${(room.current_occupancy / room.capacity) * 100}%` }}
-                            />
-                          </div>
+                          {room.is_active && (
+                            <div className="w-16 bg-[#ECF4EE] rounded-full h-1.5 overflow-hidden">
+                              <div 
+                                className={`h-1.5 rounded-full ${
+                                  room.check_in_status === 'full' ? 'bg-[#0C0D0D]' :
+                                  room.check_in_status === 'partial' ? 'bg-amber-500' :
+                                  'bg-emerald-500'
+                                }`}
+                                style={{ width: `${(room.current_occupancy / room.capacity) * 100}%` }}
+                              />
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td className="px-5 py-4">
-                        <Badge variant="info" className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border ${getStatusBadge(room.check_in_status)}`}>
+                        <Badge variant="info" className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border ${
+                          room.is_active ? getStatusBadge(room.check_in_status) : 'bg-gray-100 text-gray-400 border-gray-200'
+                        }`}>
                           <span className="flex items-center gap-1">
-                            {getStatusIcon(room.check_in_status)}
-                            {getStatusLabel(room.check_in_status)}
+                            {room.is_active ? getStatusIcon(room.check_in_status) : <XCircle className="h-3 w-3 text-gray-400" />}
+                            {room.is_active ? getStatusLabel(room.check_in_status) : 'Inactive'}
                           </span>
+                        </Badge>
+                      </td>
+                      <td className="px-5 py-4">
+                        <Badge variant="info" className={`text-[9px] font-bold px-2 py-0.5 rounded-lg border ${
+                          room.is_active 
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                            : 'bg-gray-100 text-gray-500 border-gray-200'
+                        }`}>
+                          {room.is_active ? 'Active' : 'Inactive'}
                         </Badge>
                       </td>
                       <td className="px-5 py-4 text-right">
                         <div className="flex items-center justify-end gap-1">
+                          <button
+                            className={`p-1.5 rounded-xl transition-colors ${
+                              room.is_active 
+                                ? 'hover:bg-amber-50 text-emerald-600 hover:text-amber-600' 
+                                : 'hover:bg-emerald-50 text-gray-400 hover:text-emerald-600'
+                            }`}
+                            onClick={() => handleToggleStatus(room._id, room.room_number, room.is_active)}
+                            title={room.is_active ? 'Deactivate Room' : 'Activate Room'}
+                            disabled={isToggling}
+                          >
+                            {isToggling ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : room.is_active ? (
+                              <Power className="h-4 w-4" />
+                            ) : (
+                              <PowerOff className="h-4 w-4" />
+                            )}
+                          </button>
                           <button
                             className="p-1.5 rounded-xl hover:bg-[#ECF4EE] text-[#0C0D0D]/60 hover:text-[#0C0D0D] transition-colors"
                             onClick={() => router.push(`/dashboard/rooms/${room._id}`)}

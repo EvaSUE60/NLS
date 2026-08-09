@@ -94,8 +94,8 @@ export default function EditRoomPage({ params }: EditRoomPageProps) {
       errors.capacity = 'Capacity must be at least 2';
     }
     
-    if (formData.capacity > 25) {
-      errors.capacity = 'Capacity cannot exceed 25';
+    if (formData.capacity > 40) {
+      errors.capacity = 'Capacity cannot exceed 40';
     }
     
     setFormErrors(errors);
@@ -315,7 +315,7 @@ export default function EditRoomPage({ params }: EditRoomPageProps) {
                   <input
                     type="number"
                     min="2"
-                    max="25"
+                    max="40"
                     value={formData.capacity}
                     onChange={(e) => handleChange('capacity', parseInt(e.target.value) || 0)}
                     className={`w-full px-4 py-3 rounded-2xl border ${
@@ -328,7 +328,7 @@ export default function EditRoomPage({ params }: EditRoomPageProps) {
                     <p className="mt-1.5 text-xs font-semibold text-rose-600">{formErrors.capacity}</p>
                   )}
                   <p className="mt-1.5 text-[10px] font-medium text-[#0C0D0D]/50">
-                    Minimum: 2 beds, Maximum: 25 beds
+                    Minimum: 2 beds, Maximum: 40 beds
                   </p>
                 </div>
 

@@ -12,7 +12,7 @@ const createBuildingSchema = z.object({
   type: z.enum(["men", "women"]),
   total_floors: z.number().min(1, "At least 1 floor required"),
   rooms_per_floor: z.number().min(1, "At least 1 room per floor required"),
-  default_capacity: z.number().min(2).max(25).default(4),
+  default_capacity: z.number().min(2).max(40).default(4),
   address: z.string().optional(),
   description: z.string().optional(),
 });

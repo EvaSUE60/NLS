@@ -28,11 +28,13 @@ export default function DormManagementPage() {
     isLoading,
     error,
     isProcessing,
+    isExporting, // ✅ Add this
     fetchStats,
     autoAssign,
     resetDorm,
     refresh,
     clearError,
+    exportStats, // ✅ Add this
   } = useDorm();
 
   const { fetchBuildings } = useBuilding();
@@ -45,6 +47,16 @@ export default function DormManagementPage() {
     fetchStats();
     fetchBuildings();
   }, []);
+
+  // ==================== ✅ EXPORT HANDLER ====================
+  const handleExport = async () => {
+    try {
+      await exportStats();
+      toast.success('Dorm statistics exported successfully!');
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to export dorm statistics');
+    }
+  };
 
   const handleAutoAssign = async () => {
     if (!confirm('This will auto-assign all unassigned attendees to available rooms. Continue?')) {
@@ -160,9 +172,18 @@ export default function DormManagementPage() {
               <RefreshCw className="h-4 w-4 text-[#0C0D0D]/60" />
             </button>
 
-            <button className="flex items-center gap-2 bg-white/80 hover:bg-white text-[#0C0D0D] border border-[#0C0D0D]/10 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all shadow-2xs cursor-pointer">
-              <Download className="h-4 w-4 text-[#0C0D0D]/60" />
-              Export
+            {/* ✅ Updated Export Button */}
+            <button 
+              onClick={handleExport}
+              disabled={isExporting || isLoading}
+              className="flex items-center gap-2 bg-white/80 hover:bg-white text-[#0C0D0D] border border-[#0C0D0D]/10 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+            >
+              {isExporting ? (
+                <Loader2 className="h-4 w-4 animate-spin text-[#0C0D0D]/60" />
+              ) : (
+                <Download className="h-4 w-4 text-[#0C0D0D]/60" />
+              )}
+              {isExporting ? 'Exporting...' : 'Export'}
             </button>
           </div>
         </div>

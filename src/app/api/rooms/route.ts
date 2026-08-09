@@ -11,18 +11,24 @@ const createRoomSchema = z.object({
   building_id: z.string().min(1, "Building ID is required"),
   floor: z.number().min(1, "Floor number is required"),
   room_number: z.string().min(1, "Room number is required"),
-  capacity: z.number().min(2, "Capacity must be at least 2").max(25, "Capacity cannot exceed 25"),
+  capacity: z.number().min(2, "Capacity must be at least 2").max(40, "Capacity cannot exceed 40"),
 });
 
-// Helper function
+// ==================== ✅ FIXED: Helper function ====================
 function getFloorName(floor: number): string {
   const floorNames: { [key: number]: string } = {
-    1: 'Ground',
-    2: '1st',
-    3: '2nd',
-    4: '3rd',
-    5: '4th',
-    6: '5th',
+    1: '1st',    // ✅ Changed from 'Ground' to '1st'
+    2: '2nd',
+    3: '3rd',
+    4: '4th',
+    5: '5th',
+    6: '6th',
+    7: '7th',
+    8: '8th',
+    9: '9th',
+    10: '10th',
+    11: '11th',
+    12: '12th',
   };
   return floorNames[floor] || `${floor}th`;
 }
@@ -77,8 +83,8 @@ export async function POST(request: NextRequest) {
       room_id: `RM-${building.building_id}-${floor}-${room_number}`,
       room_number,
       building_id: building._id,
-      building_type: building.type, // ✅ Add building type
-      building_name: building.name, // ✅ Add building name
+      building_type: building.type,
+      building_name: building.name,
       floor,
       floor_name: getFloorName(floor),
       capacity,
@@ -105,9 +111,7 @@ export async function POST(request: NextRequest) {
 }
 
 // GET - List all rooms with filters
-// src/app/api/rooms/route.ts - Update GET handler
 
-// GET - List all rooms with filters
 export async function GET(request: NextRequest) {
   try {
     const authError = await requireRole(["super_admin", "admin", "staff"])(request);
@@ -120,44 +124,34 @@ export async function GET(request: NextRequest) {
     const building_type = searchParams.get('building_type');
     const floor = searchParams.get('floor');
     const is_full = searchParams.get('is_full');
+    const is_active = searchParams.get('is_active'); // ✅ Filter for active/inactive
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '0'); // ✅ 0 means no limit
+    const limit = parseInt(searchParams.get('limit') || '0');
     const skip = limit > 0 ? (page - 1) * limit : 0;
 
-    // Get all active building IDs
-    const activeBuildings = await Building.find({ is_active: true }).select('_id');
-    const activeBuildingIds = activeBuildings.map(b => b._id);
+    // ==================== ✅ BUILD FILTER ====================
+    const filter: any = {};
 
-    const filter: any = { 
-      is_active: true,
-      building_id: { $in: activeBuildingIds } 
-    };
-    
+    // ✅ If building_id is provided, filter by it
     if (building_id) {
-      const building = await Building.findOne({ _id: building_id, is_active: true });
-      if (!building) {
-        return NextResponse.json({
-          success: true,
-          data: {
-            rooms: [],
-            pagination: {
-              page: 1,
-              limit: 0,
-              total: 0,
-              pages: 0,
-            },
-            stats: [],
-          },
-        });
-      }
       filter.building_id = building_id;
     }
-    
+
+    // ✅ Handle is_active filter
+    if (is_active !== null && is_active !== undefined && is_active !== '') {
+      // If is_active parameter is provided, use it
+      filter.is_active = is_active === 'true';
+    }
+    // ❌ REMOVED: Default is_active: true - now shows ALL rooms by default
+
+    // Apply other filters
     if (building_type) filter.building_type = building_type;
     if (floor) filter.floor = parseInt(floor);
     if (is_full !== null && is_full !== '') filter.is_full = is_full === 'true';
 
-    // ✅ Build query with proper limit handling
+    console.log('📊 Room filter:', JSON.stringify(filter, null, 2));
+
+    // Build query
     let query = Room.find(filter)
       .populate('building_id', 'name type')
       .sort({ building_type: 1, floor: 1, room_number: 1 });
@@ -192,14 +186,15 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // Get stats
+    // ==================== ✅ GET STATS ====================
+    // Stats should count ALL rooms
+    const statsFilter: any = {};
+    if (building_id) {
+      statsFilter.building_id = building_id;
+    }
+
     const stats = await Room.aggregate([
-      { 
-        $match: { 
-          is_active: true,
-          building_id: { $in: activeBuildingIds }
-        } 
-      },
+      { $match: statsFilter },
       {
         $group: {
           _id: '$building_type',
@@ -207,6 +202,23 @@ export async function GET(request: NextRequest) {
           occupied_rooms: { $sum: { $cond: [{ $eq: ['$is_full', true] }, 1, 0] } },
           total_beds: { $sum: '$capacity' },
           occupied_beds: { $sum: '$current_occupancy' },
+        },
+      },
+    ]);
+
+    // Also get active rooms count for reference
+    const activeStats = await Room.aggregate([
+      { 
+        $match: { 
+          ...statsFilter,
+          is_active: true 
+        } 
+      },
+      {
+        $group: {
+          _id: '$building_type',
+          total_rooms: { $sum: 1 },
+          total_beds: { $sum: '$capacity' },
         },
       },
     ]);
@@ -221,7 +233,12 @@ export async function GET(request: NextRequest) {
           total,
           pages: limit > 0 ? Math.ceil(total / limit) : 1,
         },
-        stats,
+        stats: {
+          all: stats,
+          active: activeStats,
+        },
+        // ✅ Include filter info for debugging
+        filter: filter,
       },
     });
   } catch (error) {

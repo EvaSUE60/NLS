@@ -13,15 +13,10 @@ import {
   BookOpen,
   CalendarCheck,
   MapPin,
-  Church,
-  GraduationCap,
-  CreditCard,
   CheckCircle2,
   XCircle,
-  Clock,
   Loader2,
-  AlertCircle,
-  BedDouble
+  AlertCircle
 } from "lucide-react";
 import { useStudent } from "@/src/hooks/useStudent";
 
@@ -110,7 +105,7 @@ export default function StudentPage({ params }: StudentPageProps) {
     );
   }
 
-  const { student, room, group, seminars, sessions, arrival } = data;
+  const { student, room, group, seminars, sessions } = data;
 
   return (
     <main className="relative min-h-screen bg-[#ECF4EE] px-4 py-8 sm:px-6 lg:px-8 text-[#0C0D0D]">
@@ -197,63 +192,7 @@ export default function StudentPage({ params }: StudentPageProps) {
           {/* LEFT COLUMN: Main Info Cards */}
           <div className="lg:col-span-2 space-y-6">
             
-            {/* Personal Details Grid */}
-            <InfoCard title="Personal Information" icon={User}>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <DetailBox
-                  icon={Church}
-                  label="Church"
-                  value={student.local_church || "N/A"}
-                />
-                <DetailBox
-                  icon={GraduationCap}
-                  label="Campus"
-                  value={student.campus || "N/A"}
-                />
-                <DetailBox
-                  icon={CreditCard}
-                  label="Payment Status"
-                  value={student.payment_status || "N/A"}
-                  highlight
-                />
-              </div>
-            </InfoCard>
-
-            {/* Room & Group Allocation (2 Columns within Left Block) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {/* Room Card */}
-              <InfoCard title="Room Allocation" icon={Building2}>
-                {room ? (
-                  <div className="space-y-3">
-                    <InfoRow label="Building" value={room.building_name} />
-                    <InfoRow label="Room Number" value={room.room_number} />
-                    <InfoRow label="Floor" value={`Floor ${room.floor}`} />
-                    <InfoRow label="Bed Position" value={`Bed #${room.bed_number}`} />
-                  </div>
-                ) : (
-                  <EmptyState message="No room assigned yet" />
-                )}
-              </InfoCard>
-
-              {/* Group Card */}
-              <InfoCard title="Group Info" icon={Users}>
-                {group ? (
-                  <div className="space-y-3">
-                    <InfoRow label="Group Name" value={group.name} />
-                    <InfoRow label="Group Code" value={group.group_code} />
-                    <InfoRow label="Points" value={group.points} />
-                    <InfoRow
-                      label="Capacity"
-                      value={`${group.member_count} / ${group.max_size} members`}
-                    />
-                  </div>
-                ) : (
-                  <EmptyState message="No group assigned yet" />
-                )}
-              </InfoCard>
-            </div>
-
-            {/* Seminars Card */}
+            {/* 1. Seminars & Workshops Card (MOVED TO FIRST) */}
             <InfoCard title="Seminars & Workshops" icon={BookOpen}>
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div className="bg-[#ECF4EE]/40 border border-[#d2e5d7] rounded-2xl p-3 text-center">
@@ -299,11 +238,44 @@ export default function StudentPage({ params }: StudentPageProps) {
               )}
             </InfoCard>
 
+            {/* Room & Group Allocation Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {/* 2. Room Card */}
+              <InfoCard title="Room Allocation" icon={Building2}>
+                {room ? (
+                  <div className="space-y-3">
+                    <InfoRow label="Building" value={room.building_name} />
+                    <InfoRow label="Room Number" value={room.room_number} />
+                    <InfoRow label="Floor" value={`Floor ${room.floor}`} />
+                    <InfoRow label="Bed Position" value={`Bed #${room.bed_number}`} />
+                  </div>
+                ) : (
+                  <EmptyState message="No room assigned yet" />
+                )}
+              </InfoCard>
+
+              {/* 3. Group Card */}
+              <InfoCard title="Group Info" icon={Users}>
+                {group ? (
+                  <div className="space-y-3">
+                    <InfoRow label="Group Name" value={group.name} />
+                    <InfoRow label="Group Code" value={group.group_code} />
+                    <InfoRow label="Points" value={group.points} />
+                    <InfoRow
+                      label="Capacity"
+                      value={`${group.member_count} / ${group.max_size} members`}
+                    />
+                  </div>
+                ) : (
+                  <EmptyState message="No group assigned yet" />
+                )}
+              </InfoCard>
+            </div>
+
           </div>
 
           {/* RIGHT COLUMN: Attendance Metrics & Check-in Details */}
           <div className="space-y-6">
-            
             {/* Session Attendance Card */}
             <InfoCard title="Session Attendance" icon={CalendarCheck}>
               <div className="grid grid-cols-2 gap-3">
@@ -320,41 +292,6 @@ export default function StudentPage({ params }: StudentPageProps) {
                 </span>
               </div>
             </InfoCard>
-
-            {/* Check-in Details */}
-            <InfoCard title="Check-in Status" icon={Clock}>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#0C0D0D]/50">Status</span>
-                  <span
-                    className={`text-xs font-black ${
-                      arrival.arrived ? "text-emerald-700" : "text-amber-700"
-                    }`}
-                  >
-                    {arrival.arrived ? "✓ Arrived On-Site" : "Pending Check-in"}
-                  </span>
-                </div>
-
-                {arrival.arrival_time && (
-                  <div className="flex items-center justify-between border-t border-[#ECF4EE] pt-3">
-                    <span className="text-xs font-bold text-[#0C0D0D]/50">Check-in Time</span>
-                    <span className="text-xs font-semibold text-[#0C0D0D]">
-                      {new Date(arrival.arrival_time).toLocaleString()}
-                    </span>
-                  </div>
-                )}
-
-                {arrival.arrival_method && (
-                  <div className="flex items-center justify-between border-t border-[#ECF4EE] pt-3">
-                    <span className="text-xs font-bold text-[#0C0D0D]/50">Transportation</span>
-                    <span className="text-xs font-bold bg-[#ECF4EE] px-3 py-1 rounded-full text-[#0C0D0D]">
-                      {arrival.arrival_method}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </InfoCard>
-
           </div>
 
         </div>
@@ -388,34 +325,6 @@ function InfoCard({
       </div>
       {children}
     </section>
-  );
-}
-
-function DetailBox({
-  icon: Icon,
-  label,
-  value,
-  highlight = false,
-}: {
-  icon: any;
-  label: string;
-  value: React.ReactNode;
-  highlight?: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-2xl p-4 border ${
-        highlight
-          ? "bg-[#0C0D0D] text-[#ECF4EE] border-[#0C0D0D]"
-          : "bg-[#ECF4EE]/30 border-[#ECF4EE] text-[#0C0D0D]"
-      }`}
-    >
-      <div className="flex items-center gap-2 mb-1.5 opacity-70">
-        <Icon className="h-3.5 w-3.5" />
-        <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
-      </div>
-      <p className="text-xs font-extrabold truncate">{value}</p>
-    </div>
   );
 }
 

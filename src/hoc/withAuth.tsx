@@ -7,27 +7,35 @@ import { useAuth } from '@/src/hooks/useAuth';
 
 export function withAuth(Component: React.ComponentType, allowedRoles?: string[]) {
   return function ProtectedRoute(props: any) {
-    const { isAuthenticated, isLoading, hasRole } = useAuth();
+    const { 
+      isAuthenticated, 
+      isLoading, 
+      hasRole, 
+      isHydrated 
+    } = useAuth();
     const router = useRouter();
 
     useEffect(() => {
-      if (!isLoading && !isAuthenticated) {
+      if (!isHydrated || isLoading) return;
+
+      if (!isAuthenticated) {
         router.push('/login');
         return;
       }
-      if (!isLoading && isAuthenticated && allowedRoles) {
+
+      if (isAuthenticated && allowedRoles) {
         if (!hasRole(allowedRoles)) {
           router.push('/unauthorized');
         }
       }
-    }, [isLoading, isAuthenticated, router, hasRole]);
+    }, [isHydrated, isLoading, isAuthenticated, router, hasRole]);
 
-    if (isLoading) {
+    if (!isHydrated || isLoading) {
       return (
         <div className="flex min-h-screen items-center justify-center">
           <div className="text-center">
-            <div className="mb-4 text-lg font-semibold">Loading...</div>
-            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-500"></div>
+            <div className="mb-4 text-lg font-semibold text-[#0C0D0D]">Loading...</div>
+            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-[#0C0D0D]"></div>
           </div>
         </div>
       );
@@ -45,7 +53,7 @@ export function withAuth(Component: React.ComponentType, allowedRoles?: string[]
             <p className="mt-2 text-gray-600">You don't have permission to access this page.</p>
             <button
               onClick={() => window.history.back()}
-              className="mt-4 rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
+              className="mt-4 rounded-lg bg-[#0C0D0D] px-4 py-2 text-white hover:bg-[#0C0D0D]/80"
             >
               Go Back
             </button>
