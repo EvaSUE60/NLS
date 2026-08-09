@@ -1,3 +1,4 @@
+// src/app/(auth)/login/page.tsx
 "use client";
 
 import { FormEvent, useState } from "react";
@@ -5,26 +6,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { AlertCircle, Loader2, Lock, Mail, Sparkles, ArrowRight } from "lucide-react";
-
-import apiClient from "@/src/lib/api/client";
-
-interface LoginResponse {
-  success: boolean;
-  message: string;
-  data: {
-    user: {
-      user_id: string;
-      name: string;
-      email: string;
-      role: string;
-    };
-    accessToken: string;
-    refreshToken: string;
-  };
-}
+import { useAuth } from "@/src/hooks/useAuth";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login, isLoading: authLoading, error: authError, clearError, user } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -41,36 +27,37 @@ export default function LoginPage() {
 
     setError("");
     setIsLoading(true);
+    clearError();
 
     try {
-      const response = await apiClient.post<LoginResponse>(
-        "/auth/login",
-        {
-          email,
-          password,
-        }
-      );
-
-      const { accessToken, user } = response.data.data;
-
-      // Store access token for authenticated API requests
-      localStorage.setItem("accessToken", accessToken);
-
-      // Store basic user information
-      localStorage.setItem("user", JSON.stringify(user));
-
+      console.log("🔐 Attempting login with:", email);
+      
+      // ✅ Use the auth store's login method
+      await login(email, password);
+      
+      console.log("✅ Login successful!");
+      console.log("👤 User:", user);
+      
       // Redirect based on user role
-      // Staff → check-in page, Admin/Super Admin → dashboard
-      if (user.role === "staff") {
+      const userRole = user?.role;
+      console.log("🎯 User role:", userRole);
+      
+      if (userRole === "staff") {
         router.push("/dashboard/check-in");
       } else {
         router.push("/dashboard");
       }
     } catch (err: any) {
-      setError(
-        err.response?.data?.error ||
-          "Login failed. Please check your credentials."
-      );
+      console.error("❌ Login error:", err);
+      
+      // Extract error message from different possible sources
+      const errorMessage = 
+        err?.response?.data?.message || 
+        err?.response?.data?.error || 
+        err?.message ||
+        "Login failed. Please check your credentials.";
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -119,6 +106,7 @@ export default function LoginPage() {
                 onChange={(e) => {
                   setEmail(e.target.value);
                   setError("");
+                  clearError();
                 }}
                 autoComplete="email"
                 className="w-full px-3.5 py-2.5 bg-white border border-[#d2e5d7] rounded-xl text-[#0C0D0D] placeholder-[#0C0D0D]/40 focus:outline-none focus:ring-1 focus:ring-emerald-600 focus:border-emerald-600 text-xs font-medium transition-all"
@@ -137,25 +125,26 @@ export default function LoginPage() {
                 onChange={(e) => {
                   setPassword(e.target.value);
                   setError("");
+                  clearError();
                 }}
                 autoComplete="current-password"
                 className="w-full px-3.5 py-2.5 bg-white border border-[#d2e5d7] rounded-xl text-[#0C0D0D] placeholder-[#0C0D0D]/40 focus:outline-none focus:ring-1 focus:ring-emerald-600 focus:border-emerald-600 text-xs font-medium transition-all"
               />
             </div>
 
-            {error && (
+            {(error || authError) && (
               <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl p-3 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
-                <span>{error}</span>
+                <span>{error || authError}</span>
               </div>
             )}
 
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || authLoading}
               className="w-full flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl py-2.5 px-4 text-xs font-bold transition-all disabled:opacity-50 shadow-2xs"
             >
-              {isLoading ? (
+              {(isLoading || authLoading) ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
                   <span>Signing in...</span>

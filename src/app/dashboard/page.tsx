@@ -8,6 +8,7 @@ import { useBuildingStore } from '@/src/store/building.store';
 import { useDormStore } from '@/src/store/dorm.store';
 import { useSeminarStore } from '@/src/store/seminar.store';
 import { useGroupStore } from '@/src/store/group.store';
+import { LiveCheckInChart } from '@/src/components/dashboard/LiveCheckInChart';
 import {
   Users,
   BookOpen,
@@ -35,7 +36,14 @@ export default function DashboardPage() {
   const { user } = useAuth();
 
   // Get store methods directly
-  const { attendees, isLoading: attendeesLoading, fetchAttendees } = useAttendeeStore();
+  const { 
+    attendees, 
+    isLoading: attendeesLoading, 
+    initialize,
+    stats: attendeeStats,
+    fetchArrivalStats 
+  } = useAttendeeStore();
+  
   const { stats: dormStats, isLoading: dormLoading, fetchStats } = useDormStore();
   const { buildings, isLoading: buildingLoading, fetchBuildings } = useBuildingStore();
   const { stats: groupStats, isLoading: groupLoading, fetchStats: fetchGroupStats } = useGroupStore();
@@ -46,22 +54,39 @@ export default function DashboardPage() {
   const seminarLoading = seminarStore?.isLoading || false;
   const fetchSeminarStats = seminarStore?.fetchStats;
 
-  // Fetch data on mount
+  // Initialize data once on mount
   useEffect(() => {
-    fetchAttendees();
-    fetchStats();
-    fetchBuildings();
-    fetchGroupStats?.();
+    const loadData = async () => {
+      try {
+        // Initialize attendees first (this will fetch initial data)
+        await initialize();
+        
+        // Then fetch stats and other data in parallel
+        await Promise.all([
+          fetchArrivalStats(),
+          fetchStats(),
+          fetchBuildings(),
+          fetchGroupStats?.() || Promise.resolve(),
+          fetchSeminarStats?.() || Promise.resolve(),
+        ]);
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+      }
+    };
+    
+    loadData();
+  }, []); // Empty dependency array - only runs once
 
-    if (fetchSeminarStats && typeof fetchSeminarStats === 'function') {
-      fetchSeminarStats();
-    }
-  }, []);
-
-  // Calculate statistics
-  const totalAttendees = attendees?.length || 0;
-  const checkedIn = attendees?.filter((a) => a.arrived).length || 0;
+  // ==================== ✅ FIXED: Calculate statistics using stats from API ====================
+  // Use the correct AttendeeStats structure (summary)
+  const totalAttendees = attendeeStats?.summary?.total_attendees || 0;
+  const checkedIn = attendeeStats?.summary?.arrived || 0;
   const notCheckedIn = Math.max(0, totalAttendees - checkedIn);
+  
+  // Calculate male/female counts from attendees array
+  const maleCount = attendees?.filter(a => a.gender === 'Male').length || 0;
+  const femaleCount = attendees?.filter(a => a.gender === 'Female').length || 0;
+  
   const totalRooms = dormStats?.rooms?.total || 0;
   const totalGroups = groupStats?.summary?.total_groups || 0;
   const totalSeminars = seminarStats?.summary?.total_seminars || 0;
@@ -74,7 +99,7 @@ export default function DashboardPage() {
 
   const isLoading = attendeesLoading || dormLoading || buildingLoading || seminarLoading || groupLoading;
 
-  if (isLoading) {
+  if (isLoading && !attendeeStats) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] rounded-3xl bg-[#ECF4EE]/40 border border-[#ECF4EE] text-[#0C0D0D]">
         <div className="relative flex items-center justify-center">
@@ -92,7 +117,6 @@ export default function DashboardPage() {
     <div className="space-y-8 max-w-[1600px] mx-auto p-2 sm:p-4">
       {/* ==================== WELCOME BANNER ==================== */}
       <div className="relative overflow-hidden rounded-3xl bg-[#ECF4EE] border border-[#d2e5d7] p-6 sm:p-8 text-[#0C0D0D] shadow-sm">
-        {/* Subtle Ambient Mint & White Glows */}
         <div className="absolute -top-24 -right-24 w-96 h-96 bg-white/60 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-[#0C0D0D]/5 rounded-full blur-3xl pointer-events-none" />
 
@@ -132,6 +156,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* ==================== LIVE CHECK-IN CHART ==================== */}
+      <LiveCheckInChart />
+
       {/* ==================== STATS CARDS ==================== */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
         {/* Total Attendees */}
@@ -144,11 +171,10 @@ export default function DashboardPage() {
           </div>
           <div className="mt-4">
             <div className="text-3xl font-black text-[#0C0D0D] tracking-tight">{totalAttendees}</div>
-            <div className="mt-2 flex items-center gap-1.5 text-xs text-[#0C0D0D]/60 font-medium">
-              <span className="inline-flex items-center text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
-                <TrendingUp className="h-3 w-3 mr-1 text-emerald-600" /> +12%
-              </span>
-              <span>vs previous cycle</span>
+            <div className="mt-2 flex items-center gap-2 text-xs text-[#0C0D0D]/60 font-medium">
+              <span className="font-semibold">{maleCount} Male</span>
+              <span>•</span>
+              <span className="font-semibold">{femaleCount} Female</span>
             </div>
           </div>
         </div>
@@ -183,7 +209,7 @@ export default function DashboardPage() {
           <div className="mt-4">
             <div className="text-3xl font-black text-[#0C0D0D] tracking-tight">{totalGroups}</div>
             <div className="mt-2 flex items-center gap-1.5 text-xs text-[#0C0D0D]/60 font-medium">
-              <span className="text-[#0C0D0D] font-bold">~{Math.floor(totalAttendees / (totalGroups || 1))}</span>
+              <span className="text-[#0C0D0D] font-bold">~{totalGroups > 0 ? Math.floor(totalAttendees / totalGroups) : 0}</span>
               <span>attendees per group</span>
             </div>
           </div>
@@ -207,11 +233,10 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ==================== CENTERED STATUS DISTRIBUTION ==================== */}
+      {/* ==================== STATUS DISTRIBUTION ==================== */}
       <div className="max-w-2xl mx-auto">
         <div className="bg-white rounded-3xl border border-[#ECF4EE] p-6 sm:p-8 text-[#0C0D0D] shadow-xs flex flex-col justify-between text-center">
           <div>
-            {/* Header Centered & Bolder */}
             <div className="flex flex-col items-center justify-center mb-6 gap-1.5">
               <div className="flex items-center gap-2">
                 <PieIcon className="w-5 h-5 text-[#0C0D0D]" />

@@ -52,6 +52,21 @@ export default function CreateRoomPage() {
     }
   };
 
+  // ==================== ✅ FIXED: Get floor display name ====================
+  const getFloorDisplay = (floor: number) => {
+    if (floor === 1) return '1st';
+    if (floor === 2) return '2nd';
+    if (floor === 3) return '3rd';
+    if (floor === 4) return '4th';
+    if (floor === 5) return '5th';
+    if (floor === 6) return '6th';
+    if (floor === 7) return '7th';
+    if (floor === 8) return '8th';
+    if (floor === 9) return '9th';
+    if (floor === 10) return '10th';
+    return `${floor}th`;
+  };
+
   // ==================== VALIDATION ====================
   const validateForm = () => {
     const errors: Record<string, string> = {};
@@ -252,32 +267,35 @@ export default function CreateRoomPage() {
                     <p className="mt-1.5 text-xs font-semibold text-rose-600">{formErrors.room_number}</p>
                   )}
                   <p className="mt-1.5 text-[10px] font-medium text-[#0C0D0D]/50">
-                    Format: Floor-Room (e.g., 1-01 for Ground floor, room 1)
+                    Format: Floor-Room (e.g., 1-01 for 1st floor, room 1)
                   </p>
                 </div>
 
-                {/* Floor */}
+                {/* Floor - Updated with better labels */}
                 <div>
                   <label className="block text-xs font-bold text-[#0C0D0D] uppercase tracking-wider mb-2">
                     Floor <span className="text-rose-500">*</span>
                   </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="10"
+                  <select
                     value={formData.floor}
-                    onChange={(e) => handleChange('floor', parseInt(e.target.value) || 0)}
+                    onChange={(e) => handleChange('floor', parseInt(e.target.value) || 1)}
                     className={`w-full px-4 py-3 rounded-2xl border ${
                       formErrors.floor 
                         ? 'border-rose-300 focus:ring-rose-500 bg-rose-50/20' 
                         : 'border-[#ECF4EE] focus:border-[#0C0D0D] bg-[#ECF4EE]/20'
-                    } text-xs font-semibold text-[#0C0D0D] focus:outline-none transition-all`}
-                  />
+                    } text-xs font-semibold text-[#0C0D0D] focus:outline-none transition-all cursor-pointer`}
+                  >
+                    {Array.from({ length: 10 }, (_, i) => i + 1).map((floor) => (
+                      <option key={floor} value={floor}>
+                        {getFloorDisplay(floor)} Floor
+                      </option>
+                    ))}
+                  </select>
                   {formErrors.floor && (
                     <p className="mt-1.5 text-xs font-semibold text-rose-600">{formErrors.floor}</p>
                   )}
                   <p className="mt-1.5 text-[10px] font-medium text-[#0C0D0D]/50">
-                    Floor number (1 = Ground floor)
+                    Select the floor level for this room
                   </p>
                 </div>
 
@@ -286,18 +304,21 @@ export default function CreateRoomPage() {
                   <label className="block text-xs font-bold text-[#0C0D0D] uppercase tracking-wider mb-2">
                     Capacity <span className="text-rose-500">*</span>
                   </label>
-                  <input
-                    type="number"
-                    min="2"
-                    max="25"
+                  <select
                     value={formData.capacity}
-                    onChange={(e) => handleChange('capacity', parseInt(e.target.value) || 0)}
+                    onChange={(e) => handleChange('capacity', parseInt(e.target.value) || 4)}
                     className={`w-full px-4 py-3 rounded-2xl border ${
                       formErrors.capacity 
                         ? 'border-rose-300 focus:ring-rose-500 bg-rose-50/20' 
                         : 'border-[#ECF4EE] focus:border-[#0C0D0D] bg-[#ECF4EE]/20'
-                    } text-xs font-semibold text-[#0C0D0D] focus:outline-none transition-all`}
-                  />
+                    } text-xs font-semibold text-[#0C0D0D] focus:outline-none transition-all cursor-pointer`}
+                  >
+                    {Array.from({ length: 24 }, (_, i) => i + 2).map((cap) => (
+                      <option key={cap} value={cap}>
+                        {cap} {cap === 1 ? 'bed' : 'beds'}
+                      </option>
+                    ))}
+                  </select>
                   {formErrors.capacity && (
                     <p className="mt-1.5 text-xs font-semibold text-rose-600">{formErrors.capacity}</p>
                   )}
@@ -341,7 +362,9 @@ export default function CreateRoomPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[#0C0D0D]/50">Floor</span>
-                  <span className="font-extrabold">{formData.floor || 'Not set'}</span>
+                  <span className="font-extrabold">
+                    {formData.floor ? getFloorDisplay(formData.floor) : 'Not set'}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[#0C0D0D]/50">Capacity</span>

@@ -39,6 +39,11 @@ export interface UpdateRoomData extends Partial<CreateRoomData> {
   is_full?: boolean;
 }
 
+// ✅ New: Toggle room status
+export interface ToggleRoomStatusData {
+  is_active: boolean;
+}
+
 // API Responses
 export interface RoomResponse {
   success: boolean;
@@ -55,13 +60,21 @@ export interface RoomsListResponse {
       total: number;
       pages: number;
     };
-    stats?: Array<{
-      _id: string;
-      total_rooms: number;
-      occupied_rooms: number;
-      total_beds: number;
-      occupied_beds: number;
-    }>;
+    stats?: {
+      all: Array<{
+        _id: string;
+        total_rooms: number;
+        occupied_rooms: number;
+        total_beds: number;
+        occupied_beds: number;
+      }>;
+      active: Array<{
+        _id: string;
+        total_rooms: number;
+        total_beds: number;
+      }>;
+    };
+    filter?: any;
   };
 }
 

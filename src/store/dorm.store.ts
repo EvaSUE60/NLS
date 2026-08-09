@@ -19,6 +19,7 @@ interface DormState {
   isLoading: boolean;
   error: string | null;
   isProcessing: boolean;
+  isExporting: boolean; // ✅ Add this
   lastAutoAssignResult: AutoAssignResponse | null;
   filters: AssignmentFilters;
 
@@ -29,6 +30,7 @@ interface DormState {
   autoAssign: () => Promise<AutoAssignResponse>;
   resetDorm: () => Promise<ResetDormResponse>;
   removeAssignment: (id: string) => Promise<void>;
+  exportDormStats: (filters?: { type?: string; buildingId?: string }) => Promise<void>; // ✅ Add this
   clearSelected: () => void;
   clearError: () => void;
   setFilters: (filters: AssignmentFilters) => void;
@@ -49,11 +51,11 @@ export const useDormStore = create<DormState>((set, get) => ({
   isLoading: false,
   error: null,
   isProcessing: false,
+  isExporting: false, // ✅ Add this
   lastAutoAssignResult: null,
   filters: initialFilters,
 
   // ==================== FETCH STATS ====================
-  // GET /api/dorm/stats
   fetchStats: async () => {
     set({ isLoading: true, error: null });
     try {
@@ -71,7 +73,6 @@ export const useDormStore = create<DormState>((set, get) => ({
   },
 
   // ==================== FETCH ASSIGNMENTS ====================
-  // GET /api/dorm/assignments - Only call when explicitly requested
   fetchAssignments: async (filters) => {
     set({ isLoading: true, error: null });
     try {
@@ -84,7 +85,6 @@ export const useDormStore = create<DormState>((set, get) => ({
         isLoading: false,
       });
     } catch (error: any) {
-      // ✅ Don't throw error, just log it - endpoint might not exist
       console.log('Assignments endpoint not available:', error.message);
       set({
         assignments: [],
@@ -94,7 +94,6 @@ export const useDormStore = create<DormState>((set, get) => ({
   },
 
   // ==================== FETCH SINGLE ASSIGNMENT ====================
-  // GET /api/dorm/assignments/[id]
   fetchAssignment: async (id) => {
     set({ isLoading: true, error: null });
     try {
@@ -112,7 +111,6 @@ export const useDormStore = create<DormState>((set, get) => ({
   },
 
   // ==================== AUTO-ASSIGN ====================
-  // POST /api/dorm/assign
   autoAssign: async () => {
     set({ isProcessing: true, error: null });
     try {
@@ -122,7 +120,6 @@ export const useDormStore = create<DormState>((set, get) => ({
         isProcessing: false,
       });
       
-      // Refresh stats after auto-assign
       await get().fetchStats();
       
       return response.data;
@@ -136,7 +133,6 @@ export const useDormStore = create<DormState>((set, get) => ({
   },
 
   // ==================== RESET DORM ====================
-  // POST /api/dorm/reset
   resetDorm: async () => {
     set({ isProcessing: true, error: null });
     try {
@@ -145,7 +141,6 @@ export const useDormStore = create<DormState>((set, get) => ({
         isProcessing: false,
       });
       
-      // Refresh stats after reset
       await get().fetchStats();
       
       return response.data;
@@ -159,7 +154,6 @@ export const useDormStore = create<DormState>((set, get) => ({
   },
 
   // ==================== REMOVE ASSIGNMENT ====================
-  // DELETE /api/dorm/assignments/[id]
   removeAssignment: async (id) => {
     set({ isLoading: true, error: null });
     try {
@@ -171,12 +165,49 @@ export const useDormStore = create<DormState>((set, get) => ({
         isLoading: false,
       }));
       
-      // Refresh stats
       await get().fetchStats();
     } catch (error: any) {
       set({
         error: error.response?.data?.message || 'Failed to remove assignment',
         isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  // ==================== ✅ EXPORT DORM STATS ====================
+  exportDormStats: async (filters?: { type?: string; buildingId?: string }) => {
+    set({ isExporting: true, error: null });
+    try {
+      const response = await dormService.exportDormStats(filters);
+      
+      let filename = `dorm_stats_export_${new Date().toISOString().split('T')[0]}.csv`;
+      
+      const contentDisposition = response.headers['content-disposition'];
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = window.URL.createObjectURL(blob);
+      
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      set({ isExporting: false });
+    } catch (error: any) {
+      console.error('Export dorm stats error:', error);
+      set({
+        error: error.response?.data?.message || 'Failed to export dorm statistics',
+        isExporting: false,
       });
       throw error;
     }

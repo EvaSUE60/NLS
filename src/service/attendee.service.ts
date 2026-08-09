@@ -88,4 +88,25 @@ export const attendeeService = {
         stats: { total: number; by_region: Array<{ _id: string; count: number }> };
       };
     }>('/attendees/import'),
+
+  // ==================== ✅ EXPORT ATTENDEES ====================
+  exportAttendees: (filters?: {
+    search?: string;
+    region?: string;
+    gender?: string;
+    checkedIn?: string;
+    paymentStatus?: string;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.search) params.append('search', filters.search);
+    if (filters?.region) params.append('region', filters.region);
+    if (filters?.gender) params.append('gender', filters.gender);
+    if (filters?.checkedIn) params.append('checkedIn', filters.checkedIn);
+    if (filters?.paymentStatus) params.append('paymentStatus', filters.paymentStatus);
+
+    const queryString = params.toString();
+    return apiClient.get(`/attendees/export${queryString ? `?${queryString}` : ''}`, {
+      responseType: 'blob', // ✅ Important for file download
+    });
+  },
 };

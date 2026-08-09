@@ -3,8 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/src/lib/mongodb";
 import Attendee from "@/src/models/Attendee";
 import { requireRole } from "@/src/lib/auth/middleware";
-import * as fs from 'fs';
-import * as path from 'path';
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,7 +33,7 @@ export async function GET(request: NextRequest) {
     if (region) query.region = region;
     if (gender) query.gender = gender;
     if (checkedIn !== null && checkedIn !== undefined && checkedIn !== '') {
-      query.checked_in = checkedIn === 'true';
+      query.arrived = checkedIn === 'true';
     }
     if (paymentStatus) query.payment_status = paymentStatus;
 
@@ -50,38 +48,62 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // CSV Headers
+    // ✅ Define CSV Headers with more fields
     const csvHeaders = [
       'Unique ID',
       'First Name',
       'Last Name',
+      'Full Name',
       'Email',
       'Phone',
       'Gender',
       'Region',
       'Local Church',
-      'Campus'
+      'Campus',
+      'Payment Status',
+      'Arrived',
+      'Arrival Time',
+      'Check-in Method',
+      'Room Number',
+      'Bed Number',
+      'Building',
+      'Floor',
+      'Group',
+      'Created At'
     ];
 
-    // Build CSV rows
+    // ✅ Build CSV rows with all fields
     const csvRows = attendees.map(attendee => {
       const row = [
         attendee.unique_id || '',
         attendee.first_name || '',
         attendee.last_name || '',
+        `${attendee.first_name || ''} ${attendee.last_name || ''}`.trim(),
         attendee.email || '',
         attendee.phone || '',
         attendee.gender || '',
         attendee.region || '',
         attendee.local_church || '',
         attendee.campus || '',
+        attendee.payment_status || 'pending',
+        attendee.arrived ? 'Yes' : 'No',
+        attendee.arrival_time ? new Date(attendee.arrival_time).toLocaleString() : '',
+        attendee.arrival_method || '',
+        attendee.dorm_cache?.roomNumber || '',
+        attendee.dorm_cache?.bedNumber || '',
+        attendee.dorm_cache?.buildingName || '',
+        attendee.dorm_cache?.floor || '',
+        attendee.group_id || '',
+        attendee.created_at ? new Date(attendee.created_at).toLocaleString() : '',
       ];
       
+      // ✅ Escape fields that contain commas, quotes, or newlines
       return row.map(field => {
-        if (typeof field === 'string' && (field.includes(',') || field.includes('"') || field.includes('\n'))) {
-          return `"${field.replace(/"/g, '""')}"`;
+        const stringField = String(field);
+        if (stringField.includes(',') || stringField.includes('"') || stringField.includes('\n')) {
+          return `"${stringField.replace(/"/g, '""')}"`;
         }
-        return field;
+        return stringField;
       }).join(',');
     });
 
@@ -99,40 +121,24 @@ export async function GET(request: NextRequest) {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
     const filename = `attendees_export_${timestamp}.csv`;
 
-    // ✅ Save to src/data folder
-    const dataDir = path.join(process.cwd(), 'src', 'data');
-    
-    // Create data directory if it doesn't exist
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
-    }
-
-    const filePath = path.join(dataDir, filename);
-    fs.writeFileSync(filePath, csvWithBOM, 'utf-8');
-
-    console.log(`✅ CSV file saved to: ${filePath}`);
-    console.log(`📊 Total attendees exported: ${attendees.length}`);
-
-    // ✅ Return JSON response with file info (not the CSV file)
-    return NextResponse.json({
-      success: true,
-      message: `CSV exported successfully to ${filename}`,
-      data: {
-        filename,
-        filePath,
-        totalAttendees: attendees.length,
-        savedTo: filePath,
-        idRange: {
-          from: attendees[0]?.unique_id,
-          to: attendees[attendees.length - 1]?.unique_id
-        }
-      }
+    // ✅ Return CSV as downloadable file
+    return new NextResponse(csvWithBOM, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Length': Buffer.byteLength(csvWithBOM, 'utf-8').toString(),
+      },
     });
 
   } catch (error) {
     console.error("Export attendees error:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to export attendees" },
+      { 
+        success: false, 
+        error: "Failed to export attendees",
+        message: error instanceof Error ? error.message : "Something went wrong"
+      },
       { status: 500 }
     );
   }

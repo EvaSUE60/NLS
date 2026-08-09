@@ -2,11 +2,10 @@
 'use client';
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { authService, User } from '@/src/service/auth.service';
 
 interface AuthState {
-  // State
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -14,20 +13,21 @@ interface AuthState {
   isAdmin: boolean;
   isSuperAdmin: boolean;
   role: 'super_admin' | 'admin' | 'staff' | null;
+  isHydrated: boolean;
 
-  // Actions
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   register: (data: { name: string; email: string; phone?: string; password: string; role?: 'super_admin' | 'admin' | 'staff' }) => Promise<void>;
   getCurrentUser: () => Promise<void>;
   clearError: () => void;
   setLoading: (loading: boolean) => void;
+  setHydrated: (hydrated: boolean) => void;
+  reset: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
-      // Initial state
+    (set, get) => ({
       user: null,
       isAuthenticated: false,
       isLoading: false,
@@ -35,8 +35,8 @@ export const useAuthStore = create<AuthState>()(
       isAdmin: false,
       isSuperAdmin: false,
       role: null,
+      isHydrated: false,
 
-      // Login
       login: async (email, password) => {
         set({ isLoading: true, error: null });
         try {
@@ -63,7 +63,6 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      // Logout
       logout: async () => {
         set({ isLoading: true });
         try {
@@ -84,7 +83,6 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      // Register
       register: async (data) => {
         set({ isLoading: true, error: null });
         try {
@@ -99,13 +97,15 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      // Get current user
       getCurrentUser: async () => {
         const token = localStorage.getItem('accessToken');
         if (!token) {
-          set({ isAuthenticated: false, user: null });
+          set({ isAuthenticated: false, user: null, isLoading: false });
           return;
         }
+
+        // ✅ Prevent multiple calls
+        if (get().isLoading) return;
 
         set({ isLoading: true });
         try {
@@ -132,14 +132,25 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      // Clear error
       clearError: () => set({ error: null }),
-
-      // Set loading
       setLoading: (loading) => set({ isLoading: loading }),
+      setHydrated: (hydrated) => set({ isHydrated: hydrated }),
+      reset: () => {
+        localStorage.removeItem('accessToken');
+        set({
+          user: null,
+          isAuthenticated: false,
+          isLoading: false,
+          error: null,
+          isAdmin: false,
+          isSuperAdmin: false,
+          role: null,
+        });
+      },
     }),
     {
       name: 'auth-storage',
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         user: state.user,
         isAuthenticated: state.isAuthenticated,
@@ -147,6 +158,11 @@ export const useAuthStore = create<AuthState>()(
         isAdmin: state.isAdmin,
         isSuperAdmin: state.isSuperAdmin,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.setHydrated(true);
+        }
+      },
     }
   )
 );
