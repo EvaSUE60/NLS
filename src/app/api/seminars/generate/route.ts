@@ -7,6 +7,24 @@ import { requireRole } from "@/src/lib/auth/middleware";
 import { generateId } from "@/src/lib/generateId";
 import { SEMINAR_TYPES } from "@/src/data/seminars";
 
+// Helper: Calculate default on-time end (10 minutes after start)
+function calculateDefaultOnTimeEnd(startTime: string): string {
+  const [h, m] = startTime.split(':').map(Number);
+  const totalMinutes = h * 60 + m + 10;
+  const hours = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
+  const minutes = String(totalMinutes % 60).padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
+// Helper: Calculate default late end (30 minutes after start)
+function calculateDefaultLateEnd(startTime: string): string {
+  const [h, m] = startTime.split(':').map(Number);
+  const totalMinutes = h * 60 + m + 30;
+  const hours = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
+  const minutes = String(totalMinutes % 60).padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const authError = await requireRole(["super_admin", "admin"])(request);
@@ -20,12 +38,19 @@ export async function POST(request: NextRequest) {
       date, 
       start_time = "14:00", 
       end_time = "15:30",
+      on_time_start,      // ✅ Added
+      on_time_end,        // ✅ Added
+      late_end,           // ✅ Added
       room_prefix = "Seminar",
       building = "Main Hall",
       capacity = 30
     } = body;
 
-    console.log("📋 Generate seminars request:", { days, date, start_time, end_time, room_prefix, building, capacity });
+    console.log("📋 Generate seminars request:", { 
+      days, date, start_time, end_time, 
+      on_time_start, on_time_end, late_end,
+      room_prefix, building, capacity 
+    });
 
     if (!date) {
       return NextResponse.json(
@@ -49,6 +74,11 @@ export async function POST(request: NextRequest) {
     let skipped = 0;
     const errors = [];
     const createdSeminars = [];
+
+    // ✅ Calculate timing defaults
+    const finalOnTimeStart = on_time_start || start_time;
+    const finalOnTimeEnd = on_time_end || calculateDefaultOnTimeEnd(start_time);
+    const finalLateEnd = late_end || calculateDefaultLateEnd(start_time);
 
     for (const day of days) {
       console.log(`📅 Processing Day ${day}`);
@@ -82,11 +112,20 @@ export async function POST(request: NextRequest) {
             date: new Date(date),
             start_time: start_time,
             end_time: end_time,
+            on_time_start: finalOnTimeStart,    // ✅ Added
+            on_time_end: finalOnTimeEnd,        // ✅ Added
+            late_end: finalLateEnd,             // ✅ Added
             room: `${room_prefix}-${roomNumber}`,
             building: building,
             capacity: seminarType.maxParticipants || capacity,
             participants: [],
             evaluations: [],
+            attendance_stats: {
+              total: 0,
+              on_time: 0,
+              late: 0,
+              absent: 0,
+            },
             isClosed: false,
             is_active: true,
             createdBy: adminUser._id,
@@ -100,6 +139,9 @@ export async function POST(request: NextRequest) {
             name: seminar.name,
             day: seminar.day,
             seminar_id: seminar.seminar_id,
+            on_time_start: seminar.on_time_start,
+            on_time_end: seminar.on_time_end,
+            late_end: seminar.late_end,
           });
           
           console.log(`✅ Created: ${seminarType.name} - Day ${day}`);
@@ -127,6 +169,13 @@ export async function POST(request: NextRequest) {
         days_processed: days.length,
         seminars_per_day: SEMINAR_TYPES.length,
         created_seminars: createdSeminars,
+        timing_config: {
+          start_time,
+          end_time,
+          on_time_start: finalOnTimeStart,
+          on_time_end: finalOnTimeEnd,
+          late_end: finalLateEnd,
+        },
       },
     });
   } catch (error) {

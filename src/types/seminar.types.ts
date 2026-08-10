@@ -10,6 +10,8 @@ export interface Participant {
   attendedAt?: string;
   check_in_method?: 'qr_code' | 'manual';
   checkedInBy?: string;
+  status?: 'on_time' | 'late' | 'absent';
+  points_awarded?: number;
 }
 
 export interface Evaluation {
@@ -31,11 +33,21 @@ export interface Seminar {
   date: string;
   start_time: string;
   end_time: string;
+  // ✅ Added timing fields
+  on_time_start?: string;
+  on_time_end?: string;
+  late_end?: string;
   room?: string;
   building?: string;
   capacity: number;
   participants: Participant[];
   evaluations: Evaluation[];
+  attendance_stats?: {
+    total: number;
+    on_time: number;
+    late: number;
+    absent: number;
+  };
   isClosed: boolean;
   is_active: boolean;
   createdBy: string;
@@ -49,6 +61,20 @@ export interface Seminar {
   dayLabel?: string;
   location?: string;
   averageRating?: number | null;
+  
+  // ✅ Computed stats
+  participation_breakdown?: {
+    on_time: number;
+    late: number;
+    absent: number;
+    total: number;
+  };
+  points_summary?: {
+    on_time_bonus: number;
+    late_penalty: number;
+    absent_penalty: number;
+    total: number;
+  };
 }
 
 export interface CreateSeminarData {
@@ -60,6 +86,10 @@ export interface CreateSeminarData {
   date: string;
   start_time: string;
   end_time: string;
+  // ✅ Added timing fields
+  on_time_start?: string;
+  on_time_end?: string;
+  late_end?: string;
   room?: string;
   building?: string;
   capacity?: number;
@@ -75,6 +105,10 @@ export interface GenerateSeminarsData {
   date: string;
   start_time?: string;
   end_time?: string;
+  // ✅ Added timing fields for generation
+  on_time_start?: string;
+  on_time_end?: string;
+  late_end?: string;
   room_prefix?: string;
   building?: string;
   capacity?: number;
@@ -171,16 +205,23 @@ export interface SeminarAttendanceCheckInResponse {
     check_in: {
       method: string;
       time: string;
+      time_string_local?: string;
       status: 'on_time' | 'late' | 'absent';
       checked_by: string;
+    };
+    attendance_stats: {
+      total: number;
+      on_time: number;
+      late: number;
+      absent: number;
     };
     group?: {
       _id: string;
       name: string;
       points: number;
     } | null;
-    penalty_applied: boolean;
-    penalty_points: number;
+    points_awarded: number;
+    points_reason: string;
   };
 }
 
@@ -192,4 +233,36 @@ export interface SeminarResponse {
 export interface SeminarsListResponse {
   success: boolean;
   data: Seminar[];
+}
+
+export interface GenerateSeminarsResponse {
+  success: boolean;
+  message: string;
+  data: {
+    created: number;
+    skipped: number;
+    errors?: Array<{
+      seminar: string;
+      day: number;
+      error: string;
+    }>;
+    total_seminars: number;
+    days_processed: number;
+    seminars_per_day: number;
+    created_seminars: Array<{
+      name: string;
+      day: number;
+      seminar_id: string;
+      on_time_start?: string;
+      on_time_end?: string;
+      late_end?: string;
+    }>;
+    timing_config: {
+      start_time: string;
+      end_time: string;
+      on_time_start: string;
+      on_time_end: string;
+      late_end: string;
+    };
+  };
 }

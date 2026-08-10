@@ -1,7 +1,7 @@
 // src/app/api/seminars/[id]/register/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/src/lib/mongodb";
-import Seminar, { IParticipant } from "@/src/models/Seminar"; // ✅ Import IParticipant
+import Seminar, { ISeminarParticipant } from "@/src/models/Seminar"; // ✅ Import IParticipant
 import Attendee from "@/src/models/Attendee";
 import User from "@/src/models/User";
 import { requireRole } from "@/src/lib/auth/middleware";
@@ -107,7 +107,7 @@ export async function POST(
     if (existingTopicRegistration) {
       // ✅ Fix: Add proper typing to find() callback
       const existingParticipant = existingTopicRegistration.participants.find(
-        (p: IParticipant) => p.attendeeId.toString() === attendee._id.toString()
+        (p: ISeminarParticipant) => p.attendeeId.toString() === attendee._id.toString()
       );
       
       const day = existingTopicRegistration.day;
@@ -131,7 +131,7 @@ export async function POST(
 
     // ✅ RULE 3: Check if attendee already registered for this exact seminar
     const alreadyRegistered = seminar.participants.some(
-      (p: IParticipant) => p.attendeeId.toString() === attendee._id.toString()
+      (p: ISeminarParticipant) => p.attendeeId.toString() === attendee._id.toString()
     );
 
     if (alreadyRegistered) {

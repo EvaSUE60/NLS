@@ -43,6 +43,9 @@ export default function CreateSeminarPage() {
     date: '',
     start_time: '09:00',
     end_time: '10:30',
+    on_time_start: '08:45',
+    on_time_end: '09:15',
+    late_end: '09:30',
     room: '',
     building: '',
     capacity: 30,
@@ -114,6 +117,15 @@ export default function CreateSeminarPage() {
     if (formData.start_time >= formData.end_time) {
       errors.end_time = 'End time must be after start time';
     }
+    if (!formData.on_time_start) {
+      errors.on_time_start = 'On-time start is required';
+    }
+    if (!formData.on_time_end) {
+      errors.on_time_end = 'On-time end is required';
+    }
+    if (!formData.late_end) {
+      errors.late_end = 'Late end is required';
+    }
     if (!formData.capacity || formData.capacity < 1) {
       errors.capacity = 'Capacity must be at least 1';
     }
@@ -144,6 +156,9 @@ export default function CreateSeminarPage() {
         date: formData.date,
         start_time: formData.start_time,
         end_time: formData.end_time,
+        on_time_start: formData.on_time_start,
+        on_time_end: formData.on_time_end,
+        late_end: formData.late_end,
         room: formData.room || undefined,
         building: formData.building || undefined,
         capacity: formData.capacity,
@@ -404,7 +419,7 @@ export default function CreateSeminarPage() {
                 } focus:outline-none focus:ring-2 focus:ring-[#0C0D0D]/10 transition text-sm font-medium text-[#0C0D0D]`}
               />
               {formErrors.start_time && (
-                <p className="mt-1 text-xs text-rose-600">{formErrors.start_time}</p>
+               <p className="mt-1 text-xs text-rose-600">{formErrors.start_time}</p>
               )}
             </div>
 
@@ -425,6 +440,66 @@ export default function CreateSeminarPage() {
               />
               {formErrors.end_time && (
                 <p className="mt-1 text-xs text-rose-600">{formErrors.end_time}</p>
+              )}
+            </div>
+
+            {/* On-Time Start */}
+            <div>
+              <label className="block text-xs font-bold text-[#0C0D0D] mb-1.5 uppercase tracking-wider">
+                On-Time Start <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="time"
+                value={formData.on_time_start}
+                onChange={(e) => handleChange('on_time_start', e.target.value)}
+                className={`w-full px-4 py-2.5 rounded-xl border ${
+                  formErrors.on_time_start
+                    ? 'border-rose-300 focus:ring-rose-500'
+                    : 'border-[#ECF4EE] focus:border-[#0C0D0D]/30'
+                } focus:outline-none focus:ring-2 focus:ring-[#0C0D0D]/10 transition text-sm font-medium text-[#0C0D0D]`}
+              />
+              {formErrors.on_time_start && (
+                <p className="mt-1 text-xs text-rose-600">{formErrors.on_time_start}</p>
+              )}
+            </div>
+
+            {/* On-Time End */}
+            <div>
+              <label className="block text-xs font-bold text-[#0C0D0D] mb-1.5 uppercase tracking-wider">
+                On-Time End <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="time"
+                value={formData.on_time_end}
+                onChange={(e) => handleChange('on_time_end', e.target.value)}
+                className={`w-full px-4 py-2.5 rounded-xl border ${
+                  formErrors.on_time_end
+                    ? 'border-rose-300 focus:ring-rose-500'
+                    : 'border-[#ECF4EE] focus:border-[#0C0D0D]/30'
+                } focus:outline-none focus:ring-2 focus:ring-[#0C0D0D]/10 transition text-sm font-medium text-[#0C0D0D]`}
+              />
+              {formErrors.on_time_end && (
+                <p className="mt-1 text-xs text-rose-600">{formErrors.on_time_end}</p>
+              )}
+            </div>
+
+            {/* Late End */}
+            <div>
+              <label className="block text-xs font-bold text-[#0C0D0D] mb-1.5 uppercase tracking-wider">
+                Late End <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="time"
+                value={formData.late_end}
+                onChange={(e) => handleChange('late_end', e.target.value)}
+                className={`w-full px-4 py-2.5 rounded-xl border ${
+                  formErrors.late_end
+                    ? 'border-rose-300 focus:ring-rose-500'
+                    : 'border-[#ECF4EE] focus:border-[#0C0D0D]/30'
+                } focus:outline-none focus:ring-2 focus:ring-[#0C0D0D]/10 transition text-sm font-medium text-[#0C0D0D]`}
+              />
+              {formErrors.late_end && (
+                <p className="mt-1 text-xs text-rose-600">{formErrors.late_end}</p>
               )}
             </div>
           </div>

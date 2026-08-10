@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/src/lib/mongodb";
 import Attendee from "@/src/models/Attendee";
 import Group, { IGroupMember } from "@/src/models/Group";
-import Seminar, { IParticipant } from "@/src/models/Seminar";
+import Seminar, { ISeminarParticipant } from "@/src/models/Seminar";
 import Session, { ISessionAttendee } from "@/src/models/Session";
 
 export async function GET(
@@ -101,7 +101,7 @@ export async function GET(
     // ✅ Fix: Add type annotation for 'p'
     const seminarList = registeredSeminars.map((seminar) => {
       const participant = seminar.participants.find(
-        (p: IParticipant) => p.attendeeId.toString() === attendee._id.toString()
+        (p: ISeminarParticipant) => p.attendeeId.toString() === attendee._id.toString()
       );
       return {
         seminar_id: seminar.seminar_id,

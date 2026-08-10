@@ -1,7 +1,7 @@
 // src/hooks/useSeminar.ts
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useSeminarStore } from '@/src/store/seminar.store';
 import { SeminarFilters } from '@/src/types/seminar.types';
 
@@ -13,6 +13,7 @@ export const useSeminar = (autoFetch: boolean = true) => {
     participantsStats,
     isLoading,
     isProcessing,
+    isGenerating,
     error,
     filters,
     stats,
@@ -32,24 +33,26 @@ export const useSeminar = (autoFetch: boolean = true) => {
     resetFilters,
   } = useSeminarStore();
 
+  // Auto-fetch on mount
   useEffect(() => {
     if (autoFetch) {
       fetchSeminars();
       fetchStats();
     }
-  }, [autoFetch]);
+  }, [autoFetch, fetchSeminars, fetchStats]);
 
-  const filterByDay = (day: number) => {
+  // Filter helpers
+  const filterByDay = useCallback((day: number) => {
     return fetchSeminars({ day });
-  };
+  }, [fetchSeminars]);
 
-  const filterByTopic = (seminarKey: string) => {
+  const filterByTopic = useCallback((seminarKey: string) => {
     return fetchSeminars({ seminar_key: seminarKey });
-  };
+  }, [fetchSeminars]);
 
-  const refetch = (filters?: SeminarFilters) => {
+  const refetch = useCallback((filters?: SeminarFilters) => {
     return fetchSeminars(filters);
-  };
+  }, [fetchSeminars]);
 
   return {
     // State
@@ -59,6 +62,7 @@ export const useSeminar = (autoFetch: boolean = true) => {
     participantsStats,
     isLoading,
     isProcessing,
+    isGenerating,
     error,
     filters,
     stats,

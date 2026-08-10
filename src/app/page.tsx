@@ -90,18 +90,11 @@ export default function Home() {
               National Leadership Summit Management System
             </p>
             <p className="text-[11px] font-medium text-[#0C0D0D]/50 mt-0.5">
-              Powered by EvaSUE
+              Powered by EvaSUE IT Teams
             </p>
           </div>
 
-          <div className="flex items-center gap-6">
-            
-            
-            
-            <span className="rounded-full bg-[#ECF4EE] border border-[#d2e5d7] px-2.5 py-1 text-[10px] font-mono font-bold text-[#0C0D0D]/60">
-              v1.0.0
-            </span>
-          </div>
+        
         </div>
       </footer>
     </main>

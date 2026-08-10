@@ -1,7 +1,7 @@
 // src/app/api/seminars/[id]/participants/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/src/lib/mongodb";
-import Seminar, { IParticipant } from "@/src/models/Seminar"; // ✅ Import IParticipant
+import Seminar, { ISeminarParticipant } from "@/src/models/Seminar"; // ✅ Import IParticipant
 import { requireRole } from "@/src/lib/auth/middleware";
 import mongoose from "mongoose";
 
@@ -40,17 +40,17 @@ export async function GET(
     // ✅ Fix: Add proper typing to filter callback
     if (attended !== null && attended !== undefined) {
       participants = participants.filter(
-        (p: IParticipant) => p.attended === (attended === 'true')
+        (p: ISeminarParticipant) => p.attended === (attended === 'true')
       );
     }
 
     // ✅ Fix: Add proper typing to filter callbacks in stats
     const totalAttended = seminar.participants.filter(
-      (p: IParticipant) => p.attended
+      (p: ISeminarParticipant) => p.attended
     ).length;
     
     const totalNotAttended = seminar.participants.filter(
-      (p: IParticipant) => !p.attended
+      (p: ISeminarParticipant) => !p.attended
     ).length;
 
     return NextResponse.json({

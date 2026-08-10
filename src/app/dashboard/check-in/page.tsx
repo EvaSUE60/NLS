@@ -21,9 +21,11 @@ import { Button } from '@/src/components/ui/Button';
 import { Avatar } from '@/src/components/ui/Avatar';
 import { useCheckin } from '@/src/hooks/useCheckin';
 import { useSeminar } from '@/src/hooks/useSeminar';
+import { useSession } from '@/src/hooks/useSession';
 import { toast } from 'sonner';
 import { AttendeeSearchResult } from '@/src/types/checkin.types';
 import { Seminar, Participant } from '@/src/types/seminar.types';
+import { Session } from '@/src/types/session.types';
 import { 
   ArrivalCheckInResponse,
   SessionCheckInResponse,
@@ -40,12 +42,13 @@ interface CheckinOption {
   color: string;
 }
 
-interface SeminarOption {
+interface SessionOption {
   value: string;
   label: string;
-  isFull: boolean;
-  registered: number;
-  capacity: number;
+  day: number;
+  type: string;
+  attendees: number;
+  isActive: boolean;
 }
 
 type CheckInResult = ArrivalCheckInResponse | SessionCheckInResponse | SeminarCheckInResponse | null;
@@ -91,6 +94,12 @@ export default function CheckInPage() {
     fetchParticipants,
   } = useSeminar(false);
 
+  const {
+    sessions,
+    isLoading: sessionsLoading,
+    fetchSessions,
+  } = useSession();
+
   const [checkinModalOpen, setCheckinModalOpen] = useState(false);
   const [checkinType, setCheckinType] = useState<CheckinType>('arrival');
   const [nlsIdInput, setNlsIdInput] = useState('');
@@ -105,7 +114,35 @@ export default function CheckInPage() {
   const [participantStatus, setParticipantStatus] = useState<'registered' | 'not-registered' | 'already-attended' | null>(null);
   const [lastCheckedInName, setLastCheckedInName] = useState<string | null>(null);
   const [isLoadingSeminars, setIsLoadingSeminars] = useState(false);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch sessions when modal opens for session check-in
+  useEffect(() => {
+    let isMounted = true;
+    
+    if (checkinModalOpen && checkinType === 'session' && sessions.length === 0) {
+      const loadSessions = async () => {
+        if (isMounted) {
+          setIsLoadingSessions(true);
+        }
+        try {
+          await fetchSessions();
+        } catch (error) {
+          console.error('Error fetching sessions:', error);
+        } finally {
+          if (isMounted) {
+            setIsLoadingSessions(false);
+          }
+        }
+      };
+      loadSessions();
+    }
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [checkinModalOpen, checkinType, sessions.length, fetchSessions]);
 
   // Fetch seminars when modal opens for seminar check-in
   useEffect(() => {
@@ -134,11 +171,17 @@ export default function CheckInPage() {
     };
   }, [checkinModalOpen, checkinType, seminars.length, refetchSeminars]);
 
-  // Derive selected seminar details from seminars + selectedSeminarId
+  // Derive selected seminar details
   const selectedSeminarDetails = useMemo(() => {
     if (!selectedSeminarId || seminars.length === 0) return null;
     return seminars.find((s: Seminar) => s._id === selectedSeminarId) || null;
   }, [selectedSeminarId, seminars]);
+
+  // Derive selected session details
+  const selectedSessionDetails = useMemo(() => {
+    if (!selectedSessionId || sessions.length === 0) return null;
+    return sessions.find((s: Session) => s._id === selectedSessionId) || null;
+  }, [selectedSessionId, sessions]);
 
   // Fetch participants when a seminar is selected
   useEffect(() => {
@@ -158,7 +201,7 @@ export default function CheckInPage() {
     setCheckinType(type);
     setCheckinModalOpen(true);
     
-    if (type === 'seminar') {
+    if (type === 'seminar' || type === 'session') {
       setCheckinStep('select');
     } else {
       setCheckinStep('input');
@@ -173,11 +216,19 @@ export default function CheckInPage() {
     setParticipantStatus(null);
     setLastCheckedInName(null);
     setIsLoadingSeminars(false);
+    setIsLoadingSessions(false);
 
     if (type === 'seminar' && seminars.length === 0) {
       setIsLoadingSeminars(true);
       refetchSeminars({ isActive: true }).finally(() => {
         setIsLoadingSeminars(false);
+      });
+    }
+    
+    if (type === 'session' && sessions.length === 0) {
+      setIsLoadingSessions(true);
+      fetchSessions().finally(() => {
+        setIsLoadingSessions(false);
       });
     }
   };
@@ -189,14 +240,18 @@ export default function CheckInPage() {
     setFoundAttendee(null);
     setCheckinError(null);
     setCheckinResult(null);
-    
     setParticipantStatus(null);
     setLastCheckedInName(null);
     setIsLoadingSeminars(false);
+    setIsLoadingSessions(false);
   };
 
-  const handleSeminarSelect = () => {
-    if (!selectedSeminarId) {
+  const handleSelectNext = () => {
+    if (!selectedSessionId && checkinType === 'session') {
+      toast.error('Please select a session');
+      return;
+    }
+    if (!selectedSeminarId && checkinType === 'seminar') {
       toast.error('Please select a seminar');
       return;
     }
@@ -316,6 +371,41 @@ export default function CheckInPage() {
     }
   }, [foundAttendee, selectedSeminarId, checkInSeminar, fetchParticipants]);
 
+  const handleSessionCheckin = useCallback(async () => {
+    if (!foundAttendee || !selectedSessionId) return;
+
+    setIsCheckingParticipant(true);
+    setCheckinError(null);
+
+    try {
+      const result = await checkInSession(selectedSessionId, foundAttendee.unique_id, 'manual');
+      
+      setCheckinResult(result);
+      
+      if (result?.data?.attendee) {
+        const attendee = result.data.attendee as Partial<AttendeeSearchResult> & { full_name?: string; first_name?: string; last_name?: string; dorm_cache?: AttendeeSearchResult['dorm_cache'] };
+        setFoundAttendee({
+          ...foundAttendee,
+          ...attendee,
+        } as AttendeeSearchResult);
+        setLastCheckedInName(attendee.full_name || `${attendee.first_name ?? ''} ${attendee.last_name ?? ''}`.trim());
+      }
+      
+      setCheckinStep('success');
+      toast.success(`${foundAttendee.first_name} ${foundAttendee.last_name} checked in!`);
+      
+      // Refresh sessions to update attendance count
+      await fetchSessions();
+    } catch (err: unknown) {
+      console.error('Session check-in error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to check in';
+      setCheckinError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setIsCheckingParticipant(false);
+    }
+  }, [foundAttendee, selectedSessionId, checkInSession, fetchSessions]);
+
   const handleConfirmCheckin = useCallback(async () => {
     if (!foundAttendee) return;
 
@@ -327,12 +417,8 @@ export default function CheckInPage() {
           result = await checkInArrival(foundAttendee._id, 'manual');
           break;
         case 'session':
-          if (!selectedSessionId) {
-            toast.error('Please select a session');
-            return;
-          }
-          result = await checkInSession(selectedSessionId, foundAttendee.unique_id, 'manual');
-          break;
+          await handleSessionCheckin();
+          return;
         case 'seminar':
           await handleSeminarCheckin();
           return;
@@ -361,7 +447,7 @@ export default function CheckInPage() {
       toast.error(errorMessage);
       setCheckinError(errorMessage);
     }
-  }, [foundAttendee, checkinType, checkInArrival, checkInSession, handleSeminarCheckin, selectedSessionId]);
+  }, [foundAttendee, checkinType, checkInArrival, handleSessionCheckin, handleSeminarCheckin]);
 
   const getCheckinColor = () => {
     switch (checkinType) {
@@ -381,7 +467,7 @@ export default function CheckInPage() {
     }
   };
 
-  // Derived display attendee type to handle different response shapes
+  // Derived display attendee type
   type DisplayAttendee = AttendeeSearchResult | {
     _id: string;
     unique_id: string;
@@ -419,7 +505,18 @@ export default function CheckInPage() {
 
   const displayAttendee = getDisplayAttendee();
 
-  const seminarOptions: SeminarOption[] = seminars.map((s: Seminar) => {
+  // Session options
+  const sessionOptions: SessionOption[] = sessions.map((s: Session) => ({
+    value: s._id,
+    label: `${s.name} (Day ${s.day})`,
+    day: s.day,
+    type: s.type,
+    attendees: s.attendees?.length || 0,
+    isActive: s.is_active,
+  }));
+
+  // Seminar options
+  const seminarOptions = seminars.map((s: Seminar) => {
     const participants = s.participants || [];
     const registered = participants.length;
     const capacity = s.capacity || 0;
@@ -435,7 +532,7 @@ export default function CheckInPage() {
     };
   });
 
-  // Narrowed check-in response pieces for safe property access in JSX
+  // Narrowed check-in response pieces
   const seminarData = (checkinResult?.data as SeminarCheckInResponse['data'])?.seminar;
   const sessionData = (checkinResult?.data as SessionCheckInResponse['data'])?.session;
   const checkInData = (checkinResult?.data as SessionCheckInResponse['data'] | SeminarCheckInResponse['data'])?.check_in;
@@ -487,7 +584,8 @@ export default function CheckInPage() {
                 <div>
                   <h3 className="font-extrabold text-[#0C0D0D]">{getCheckinLabel()}</h3>
                   <p className="text-xs text-[#0C0D0D]/50 font-medium">
-                    {checkinStep === 'select' && 'Select a seminar'}
+                    {checkinStep === 'select' && checkinType === 'seminar' && 'Select a seminar'}
+                    {checkinStep === 'select' && checkinType === 'session' && 'Select a session'}
                     {checkinStep === 'input' && 'Enter NLS ID'}
                     {checkinStep === 'confirm' && 'Verify student information'}
                     {checkinStep === 'success' && 'Check-in complete!'}
@@ -503,46 +601,80 @@ export default function CheckInPage() {
             </div>
 
             <div className="p-6 space-y-6">
-              {/* Step 1: Select Seminar */}
+              {/* Step 1: Select Seminar or Session */}
               {checkinStep === 'select' && (
                 <div className="space-y-4">
                   <div className="text-center">
                     <div className="w-16 h-16 bg-[#ECF4EE] rounded-full flex items-center justify-center mx-auto mb-3">
-                      <BookOpen className="h-8 w-8 text-[#0C0D0D]" />
+                      {checkinType === 'seminar' ? (
+                        <BookOpen className="h-8 w-8 text-[#0C0D0D]" />
+                      ) : (
+                        <Clock className="h-8 w-8 text-[#0C0D0D]" />
+                      )}
                     </div>
                     <p className="text-sm text-[#0C0D0D]/60 font-medium">
-                      Select the seminar you want to check in participants for
+                      {checkinType === 'seminar' 
+                        ? 'Select the seminar you want to check in participants for'
+                        : 'Select the session you want to mark attendance for'}
                     </p>
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-[#0C0D0D] mb-1.5 uppercase tracking-wider">
-                      Select Seminar <span className="text-rose-500">*</span>
+                      {checkinType === 'seminar' ? 'Select Seminar' : 'Select Session'} <span className="text-rose-500">*</span>
                     </label>
-                    {isLoadingSeminars || seminarsLoading ? (
-                      <div className="flex items-center justify-center py-4">
-                        <Loader2 className="h-5 w-5 text-[#0C0D0D] animate-spin" />
-                      </div>
-                    ) : seminarOptions.length === 0 ? (
-                      <div className="text-center py-4 text-sm text-[#0C0D0D]/50">
-                        {seminarsError ? 'Error loading seminars' : 'No seminars available'}
-                      </div>
+                    
+                    {checkinType === 'session' ? (
+                      // Session Selection
+                      isLoadingSessions || sessionsLoading ? (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="h-5 w-5 text-[#0C0D0D] animate-spin" />
+                        </div>
+                      ) : sessionOptions.length === 0 ? (
+                        <div className="text-center py-4 text-sm text-[#0C0D0D]/50">
+                          {sessions.length === 0 ? 'No sessions available' : 'Error loading sessions'}
+                        </div>
+                      ) : (
+                        <select
+                          value={selectedSessionId}
+                          onChange={(e) => setSelectedSessionId(e.target.value)}
+                          className="w-full px-4 py-3 bg-[#FAFAFA] border border-[#0C0D0D]/10 rounded-2xl text-sm font-semibold text-[#0C0D0D] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0C0D0D] transition-all appearance-none"
+                        >
+                          <option value="">Select a session...</option>
+                          {sessionOptions.map((opt: SessionOption) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label} ({opt.attendees} attended)
+                            </option>
+                          ))}
+                        </select>
+                      )
                     ) : (
-                      <select
-                        value={selectedSeminarId}
-                        onChange={(e) => setSelectedSeminarId(e.target.value)}
-                        className="w-full px-4 py-3 bg-[#FAFAFA] border border-[#0C0D0D]/10 rounded-2xl text-sm font-semibold text-[#0C0D0D] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0C0D0D] transition-all appearance-none"
-                      >
-                        <option value="">Select a seminar...</option>
-                        {seminarOptions.map((opt: SeminarOption) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
+                      // Seminar Selection
+                      isLoadingSeminars || seminarsLoading ? (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="h-5 w-5 text-[#0C0D0D] animate-spin" />
+                        </div>
+                      ) : seminarOptions.length === 0 ? (
+                        <div className="text-center py-4 text-sm text-[#0C0D0D]/50">
+                          {seminarsError ? 'Error loading seminars' : 'No seminars available'}
+                        </div>
+                      ) : (
+                        <select
+                          value={selectedSeminarId}
+                          onChange={(e) => setSelectedSeminarId(e.target.value)}
+                          className="w-full px-4 py-3 bg-[#FAFAFA] border border-[#0C0D0D]/10 rounded-2xl text-sm font-semibold text-[#0C0D0D] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0C0D0D] transition-all appearance-none"
+                        >
+                          <option value="">Select a seminar...</option>
+                          {seminarOptions.map((opt: any) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      )
                     )}
                     
-                    {selectedSeminarDetails && (
+                    {checkinType === 'seminar' && selectedSeminarDetails && (
                       <div className="mt-3 p-3 bg-[#FAFAFA] rounded-xl border border-[#0C0D0D]/5">
                         <div className="flex justify-between text-sm">
                           <span className="text-[#0C0D0D]/60">Registered</span>
@@ -564,11 +696,39 @@ export default function CheckInPage() {
                         </div>
                       </div>
                     )}
+
+                    {checkinType === 'session' && selectedSessionDetails && (
+                      <div className="mt-3 p-3 bg-[#FAFAFA] rounded-xl border border-[#0C0D0D]/5">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-[#0C0D0D]/60">Session</span>
+                          <span className="font-bold text-[#0C0D0D]">{selectedSessionDetails.name}</span>
+                        </div>
+                        <div className="flex justify-between text-sm mt-1">
+                          <span className="text-[#0C0D0D]/60">Day</span>
+                          <span className="font-bold text-[#0C0D0D]">Day {selectedSessionDetails.day}</span>
+                        </div>
+                        <div className="flex justify-between text-sm mt-1">
+                          <span className="text-[#0C0D0D]/60">Time</span>
+                          <span className="font-bold text-[#0C0D0D]">
+                            {selectedSessionDetails.start_time} - {selectedSessionDetails.end_time}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm mt-1">
+                          <span className="text-[#0C0D0D]/60">Attendees</span>
+                          <span className="font-bold text-[#0C0D0D]">
+                            {selectedSessionDetails.attendees?.length || 0}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <Button
-                    onClick={handleSeminarSelect}
-                    disabled={!selectedSeminarId}
+                    onClick={handleSelectNext}
+                    disabled={
+                      (checkinType === 'seminar' && !selectedSeminarId) ||
+                      (checkinType === 'session' && !selectedSessionId)
+                    }
                     className="w-full bg-[#0C0D0D] hover:bg-[#0C0D0D]/90 text-white rounded-2xl py-3 font-extrabold disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <ArrowRight className="h-4 w-4 mr-2" />
@@ -580,11 +740,19 @@ export default function CheckInPage() {
               {/* Step 2: Input NLS ID */}
               {checkinStep === 'input' && (
                 <form onSubmit={handleNlsIdSubmit} className="space-y-4">
-                  {checkinType === 'seminar' && selectedSeminarDetails && (
+                  {(checkinType === 'seminar' && selectedSeminarDetails) && (
                     <div className="bg-[#ECF4EE] rounded-xl p-3 text-center">
                       <p className="text-xs text-[#0C0D0D]/60">Checking in to</p>
                       <p className="text-sm font-bold text-[#0C0D0D]">{selectedSeminarDetails.name}</p>
                       <p className="text-xs text-[#0C0D0D]/50">Day {selectedSeminarDetails.day}</p>
+                    </div>
+                  )}
+
+                  {(checkinType === 'session' && selectedSessionDetails) && (
+                    <div className="bg-[#ECF4EE] rounded-xl p-3 text-center">
+                      <p className="text-xs text-[#0C0D0D]/60">Marking attendance for</p>
+                      <p className="text-sm font-bold text-[#0C0D0D]">{selectedSessionDetails.name}</p>
+                      <p className="text-xs text-[#0C0D0D]/50">Day {selectedSessionDetails.day} · {selectedSessionDetails.start_time} - {selectedSessionDetails.end_time}</p>
                     </div>
                   )}
 
@@ -595,6 +763,8 @@ export default function CheckInPage() {
                     <p className="text-sm text-[#0C0D0D]/60 font-medium">
                       {checkinType === 'seminar' 
                         ? 'Enter NLS ID of registered participant'
+                        : checkinType === 'session'
+                        ? 'Enter the student\'s NLS ID for session attendance'
                         : 'Enter the student\'s NLS ID'}
                     </p>
                   </div>
@@ -617,24 +787,6 @@ export default function CheckInPage() {
                     </p>
                   </div>
 
-                  {checkinType === 'session' && (
-                    <div>
-                      <label className="block text-xs font-bold text-[#0C0D0D] mb-1.5 uppercase tracking-wider">
-                        Select Session <span className="text-rose-500">*</span>
-                      </label>
-                      <select
-                        value={selectedSessionId}
-                        onChange={(e) => setSelectedSessionId(e.target.value)}
-                        className="w-full px-4 py-3 bg-[#FAFAFA] border border-[#0C0D0D]/10 rounded-2xl text-sm font-semibold text-[#0C0D0D] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0C0D0D] transition-all appearance-none"
-                      >
-                        <option value="">Select a session...</option>
-                        <option value="session-1">Session 1: Morning Worship</option>
-                        <option value="session-2">Session 2: Teaching</option>
-                        <option value="session-3">Session 3: Workshop</option>
-                      </select>
-                    </div>
-                  )}
-
                   {checkinError && (
                     <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3 flex items-start gap-2">
                       <AlertCircle className="h-4 w-4 text-rose-600 flex-shrink-0 mt-0.5" />
@@ -642,7 +794,7 @@ export default function CheckInPage() {
                     </div>
                   )}
 
-                  {checkinType === 'seminar' && (
+                  {(checkinType === 'seminar' || checkinType === 'session') && (
                     <Button
                       type="button"
                       variant="secondary"
@@ -653,7 +805,7 @@ export default function CheckInPage() {
                       }}
                       className="w-full rounded-2xl border-[#0C0D0D]/10 bg-[#FAFAFA] text-[#0C0D0D] font-bold"
                     >
-                      ← Back to Seminar Selection
+                      ← Back to Selection
                     </Button>
                   )}
 
@@ -708,12 +860,14 @@ export default function CheckInPage() {
                     </div>
                   )}
 
-                  {checkinType === 'session' && selectedSessionId && (
-                    <div className="text-center text-xs text-[#0C0D0D]/60">
-                      <span className="font-bold">Session:</span>{' '}
-                      {selectedSessionId === 'session-1' ? 'Morning Worship' :
-                       selectedSessionId === 'session-2' ? 'Teaching' :
-                       selectedSessionId === 'session-3' ? 'Workshop' : 'Selected'}
+                  {checkinType === 'session' && selectedSessionDetails && (
+                    <div className="text-center space-y-2">
+                      <div className="text-xs text-[#0C0D0D]/60">
+                        <span className="font-bold">Session:</span> {selectedSessionDetails.name} (Day {selectedSessionDetails.day})
+                      </div>
+                      <div className="text-xs text-[#0C0D0D]/60">
+                        <span className="font-bold">Time:</span> {selectedSessionDetails.start_time} - {selectedSessionDetails.end_time}
+                      </div>
                     </div>
                   )}
 
@@ -861,11 +1015,13 @@ export default function CheckInPage() {
                       Done
                     </Button>
                     
-                    {checkinType === 'seminar' && (
+                    {(checkinType === 'seminar' || checkinType === 'session') && (
                       <Button
                         variant="primary"
                         onClick={handleResetForNext}
-                        className="flex-1 bg-purple-600 hover:bg-purple-700 text-white rounded-2xl py-3 font-extrabold"
+                        className={`flex-1 text-white rounded-2xl py-3 font-extrabold ${
+                          checkinType === 'seminar' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'
+                        }`}
                       >
                         <Repeat className="h-4 w-4 mr-2" />
                         Check Another
@@ -873,7 +1029,7 @@ export default function CheckInPage() {
                     )}
                   </div>
 
-                  {checkinType === 'seminar' && lastCheckedInName && (
+                  {(checkinType === 'seminar' || checkinType === 'session') && lastCheckedInName && (
                     <p className="text-xs text-[#0C0D0D]/40 mt-2">
                       Last checked in: <span className="font-bold text-[#0C0D0D]">{lastCheckedInName}</span>
                     </p>

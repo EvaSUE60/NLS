@@ -103,13 +103,11 @@ async function assignAttendeeToGroup(attendee: any) {
   try {
     console.log(`👥 Assigning group for: ${attendee.first_name} ${attendee.last_name}`);
     
-    // Check if already in a group
     if (attendee.group_id) {
       console.log(`⚠️ Already in group: ${attendee.group_id}`);
       return { success: true, group: null, message: "Already in a group" };
     }
 
-    // ✅ Find first available group with space (sorted by current_size)
     const group = await Group.findOne({ 
       is_active: true 
     }).sort({ current_size: 1 });
@@ -119,13 +117,11 @@ async function assignAttendeeToGroup(attendee: any) {
       return { success: false, group: null, message: "No groups available" };
     }
 
-    // Check if group is full
     if (group.current_size >= group.max_size) {
       console.log(`⚠️ All groups are full`);
       return { success: false, group: null, message: "All groups are full" };
     }
 
-    // Add attendee to group
     group.members.push({
       attendeeId: attendee._id,
       unique_id: attendee.unique_id,
@@ -134,7 +130,6 @@ async function assignAttendeeToGroup(attendee: any) {
       joinedAt: new Date(),
     });
 
-    // Update region distribution (for display only)
     const regionDist = group.region_distribution || [];
     const regionEntry = regionDist.find((r: any) => r.region === attendee.region);
     if (regionEntry) {
@@ -144,12 +139,10 @@ async function assignAttendeeToGroup(attendee: any) {
     }
     group.region_distribution = regionDist;
 
-    // Update group stats
     group.current_size = group.members.length;
     group.points = 40;
     await group.save();
 
-    // Update attendee
     attendee.group_id = group._id;
     await attendee.save();
 
@@ -164,6 +157,38 @@ async function assignAttendeeToGroup(attendee: any) {
     console.error("❌ Failed to assign to group:", error);
     return { success: false, group: null, message: "Failed to assign group" };
   }
+}
+
+// ==================== HELPER: Get User-Friendly Error Message ====================
+function getUserFriendlyErrorMessage(error: string, attendeeName?: string, attendeeId?: string): string {
+  const errorMessages: Record<string, string> = {
+    'Already arrived': attendeeName 
+      ? `✨ ${attendeeName} (${attendeeId}) has already checked in! They're all set.` 
+      : `✨ This attendee has already checked in!`,
+    'Attendee not found': `❌ Oops! We couldn't find an attendee with that ID. Please check the NLS ID and try again.`,
+    'No building available': `🏗️ No building found for this attendee's gender. Please create a building first.`,
+    'No rooms available': `🛏️ All rooms are full! Please free up some space or add more rooms.`,
+    'No available bed found': `🛏️ No beds available in any room. Please check room capacity and assignments.`,
+    'Staff user not found': `👤 Staff user not found. Please log in again.`,
+    'Failed to reload attendee data': `🔄 Something went wrong while loading attendee data. Please try again.`,
+    'Failed to check in attendee': `❌ Unable to complete check-in. Please try again or contact support.`,
+  };
+
+  // Check if error contains specific keywords
+  if (error.includes('building')) {
+    return errorMessages['No building available'];
+  }
+  if (error.includes('room')) {
+    return errorMessages['No rooms available'];
+  }
+  if (error.includes('bed')) {
+    return errorMessages['No available bed found'];
+  }
+  if (error.includes('staff')) {
+    return errorMessages['Staff user not found'];
+  }
+
+  return errorMessages[error] || `❌ ${error}. Please try again.`;
 }
 
 // ==================== MAIN POST HANDLER ====================
@@ -201,7 +226,8 @@ export async function POST(
         { 
           success: false, 
           error: "Attendee not found",
-          message: `No attendee found with ID: ${id}`
+          message: `❌ Oops! We couldn't find an attendee with ID: ${id}. Please check the NLS ID and try again.`,
+          userFriendlyMessage: `❌ Oops! We couldn't find an attendee with that ID. Please check the NLS ID and try again.`
         },
         { status: 404 }
       );
@@ -212,10 +238,15 @@ export async function POST(
     // ==================== CHECK IF ALREADY ARRIVED ====================
     if (attendee.arrived) {
       console.log(`⚠️ Already arrived: ${attendee.first_name} ${attendee.last_name}`);
+      const arrivalTime = attendee.arrival_time 
+        ? new Date(attendee.arrival_time).toLocaleString() 
+        : 'earlier';
+      
       return NextResponse.json({
         success: false,
         error: "Already arrived",
-        message: `${attendee.first_name} ${attendee.last_name} has already arrived at ${attendee.arrival_time}`,
+        message: `✨ ${attendee.first_name} ${attendee.last_name} (${attendee.unique_id}) has already checked in! They checked in at ${arrivalTime}.`,
+        userFriendlyMessage: `✨ ${attendee.first_name} ${attendee.last_name} has already checked in! They're all set. 🎉`,
         data: {
           arrival_time: attendee.arrival_time,
           arrival_method: attendee.arrival_method,
@@ -231,7 +262,8 @@ export async function POST(
         { 
           success: false, 
           error: "Staff user not found",
-          message: `No staff user found with ID: ${user.user_id}`
+          message: `👤 Staff user not found. Please log in again.`,
+          userFriendlyMessage: `👤 Please log in again to continue.`
         },
         { status: 404 }
       );
@@ -259,7 +291,8 @@ export async function POST(
           { 
             success: false, 
             error: "No building available",
-            message: `No ${buildingType}'s building found. Please create one first.` 
+            message: `🏗️ No ${buildingType}'s building found. Please create one first.`,
+            userFriendlyMessage: `🏗️ We couldn't find a ${buildingType}'s building. Please ask an admin to set one up.`
           },
           { status: 400 }
         );
@@ -276,7 +309,8 @@ export async function POST(
           { 
             success: false, 
             error: "No rooms available",
-            message: `All rooms in ${building.name} are full.` 
+            message: `🛏️ All rooms in ${building.name} are full.`,
+            userFriendlyMessage: `🛏️ All rooms in ${building.name} are currently full! Please free up some space or add more rooms.`
           },
           { status: 400 }
         );
@@ -324,7 +358,8 @@ export async function POST(
           { 
             success: false, 
             error: "No available bed found",
-            message: "Unable to find an available bed in any room." 
+            message: `🛏️ Unable to find an available bed in any room.`,
+            userFriendlyMessage: `🛏️ No beds available! All rooms are fully occupied. Please check room assignments.`
           },
           { status: 400 }
         );
@@ -382,16 +417,19 @@ export async function POST(
         { 
           success: false, 
           error: "Failed to reload attendee data",
-          message: "Attendee data could not be retrieved after update"
+          message: `🔄 Something went wrong while loading attendee data. Please try again.`,
+          userFriendlyMessage: `🔄 Something went wrong. Please try checking in again.`
         },
         { status: 500 }
       );
     }
 
     // ==================== RESPONSE ====================
+    const successMessage = `✅ ${attendee.first_name} ${attendee.last_name} (${attendee.unique_id}) checked in and assigned to ${room?.room_number || 'room'}${groupResult.success ? ` and ${groupResult.message}` : ''}!`;
+
     return NextResponse.json({
       success: true,
-      message: `${attendee.first_name} ${attendee.last_name} checked in and assigned to ${room?.room_number || 'room'}${groupResult.success ? ` and ${groupResult.message}` : ''}`,
+      message: successMessage,
       data: {
         attendee: {
           _id: updatedAttendee._id,
@@ -437,11 +475,18 @@ export async function POST(
     });
   } catch (error) {
     console.error("Arrival check-in error:", error);
+    
+    // Extract error message
+    const errorMessage = error instanceof Error ? error.message : "Something went wrong";
+    const userFriendlyMessage = getUserFriendlyErrorMessage(errorMessage);
+    
     return NextResponse.json(
       { 
         success: false, 
         error: "Failed to check in attendee",
-        message: error instanceof Error ? error.message : "Something went wrong"
+        message: userFriendlyMessage,
+        userFriendlyMessage: userFriendlyMessage,
+        technicalMessage: errorMessage
       },
       { status: 500 }
     );

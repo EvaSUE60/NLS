@@ -6,21 +6,79 @@ import Attendee from "@/src/models/Attendee";
 import Group from "@/src/models/Group";
 import { generateId } from "@/src/lib/generateId";
 
+// Default target timezone for the event site
+const EVENT_TIMEZONE = "Africa/Addis_Ababa";
+
+// ✅ Helper: Get current UTC Date
+function getCurrentUTC(): Date {
+  return new Date();
+}
+
+// ✅ Helper: Convert UTC Date to local HH:MM string in event timezone
+function getLocalTimeString(date: Date, timeZone: string = EVENT_TIMEZONE): string {
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: timeZone,
+  });
+  return formatter.format(date);
+}
+
+// ✅ Helper: Calculate attendance status using local event timezone
 function calculateAttendanceStatus(
-  checkInTime: Date,
-  session: any
+  checkInUTC: Date,
+  session: any,
+  timeZone: string = EVENT_TIMEZONE
 ): "on_time" | "late" | "absent" {
-  const hours = checkInTime.getHours();
-  const minutes = checkInTime.getMinutes();
-  const timeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  // Extract local HH:MM string from UTC check-in timestamp
+  const localTimeStr = getLocalTimeString(checkInUTC, timeZone);
   
-  if (timeStr >= session.on_time_start && timeStr <= session.on_time_end) {
-    return "on_time";
-  } else if (timeStr > session.on_time_end && timeStr <= session.late_end) {
-    return "late";
+  const toMinutes = (time: string) => {
+    const [h, m] = time.split(':').map(Number);
+    return h * 60 + m;
+  };
+  
+  const checkInMinutes = toMinutes(localTimeStr);
+  const onTimeStartMin = toMinutes(session.on_time_start);
+  const onTimeEndMin = toMinutes(session.on_time_end);
+  const lateEndMin = toMinutes(session.late_end);
+  
+  console.log(`📍 Time Debug (${timeZone}):`);
+  console.log(`   Check-in UTC: ${checkInUTC.toISOString()}`);
+  console.log(`   Check-in Local: ${localTimeStr}`);
+  console.log(`   On-time range: ${session.on_time_start} - ${session.on_time_end}`);
+  console.log(`   Late range: ${session.on_time_end} - ${session.late_end}`);
+  console.log(`   Check-in minutes: ${checkInMinutes}`);
+  console.log(`   On-time start minutes: ${onTimeStartMin}`);
+  console.log(`   On-time end minutes: ${onTimeEndMin}`);
+  console.log(`   Late end minutes: ${lateEndMin}`);
+  
+  let status: "on_time" | "late" | "absent";
+  
+  // Handle case where on_time_start could be > on_time_end (crosses midnight)
+  if (onTimeStartMin <= onTimeEndMin) {
+    // Normal case: on_time_start <= on_time_end
+    if (checkInMinutes >= onTimeStartMin && checkInMinutes <= onTimeEndMin) {
+      status = "on_time";
+    } else if (checkInMinutes > onTimeEndMin && checkInMinutes <= lateEndMin) {
+      status = "late";
+    } else {
+      status = "absent";
+    }
   } else {
-    return "absent";
+    // Crosses midnight: on_time_start > on_time_end
+    if (checkInMinutes >= onTimeStartMin || checkInMinutes <= onTimeEndMin) {
+      status = "on_time";
+    } else if (checkInMinutes > onTimeEndMin && checkInMinutes <= lateEndMin) {
+      status = "late";
+    } else {
+      status = "absent";
+    }
   }
+  
+  console.log(`   ✅ Calculated Status: ${status}`);
+  return status;
 }
 
 async function updateGroupPointsForAttendance(
@@ -62,6 +120,7 @@ async function updateGroupPointsForAttendance(
     });
 
     await group.save();
+    console.log(`✅ Auto-penalty applied: ${penalty} points to group "${group.name}" for ${attendee.unique_id}`);
   } catch (error) {
     console.error("Error updating group points:", error);
   }
@@ -73,6 +132,8 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { nlsId, confirmNlsId, sessionId } = body;
+
+    console.log('📝 Public check-in request:', { nlsId, confirmNlsId, sessionId });
 
     if (!nlsId || !confirmNlsId || !sessionId) {
       return NextResponse.json(
@@ -104,6 +165,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log(`📍 Session: ${session.name}`);
+    console.log(`📍 Session times: on_time_start=${session.on_time_start}, on_time_end=${session.on_time_end}, late_end=${session.late_end}`);
+
     if (!session.is_active) {
       return NextResponse.json(
         { success: false, error: "Session is not active" },
@@ -122,13 +186,28 @@ export async function POST(request: NextRequest) {
           success: false,
           error: "Already checked in",
           message: `${attendee.first_name} ${attendee.last_name} already checked in`,
+          data: {
+            check_in_time: existingAttendee.check_in_time,
+            status: existingAttendee.status,
+          },
         },
         { status: 400 }
       );
     }
 
-    const checkInTime = new Date();
-    const status = calculateAttendanceStatus(checkInTime, session);
+    // ✅ Capture UTC timestamp
+    const checkInUTC = getCurrentUTC();
+    
+    // ✅ Convert checkInUTC to local event time & calculate attendance status
+    const status = calculateAttendanceStatus(checkInUTC, session);
+    const localTimeStr = getLocalTimeString(checkInUTC);
+
+    console.log(`📍 Check-in complete:`);
+    console.log(`   Attendee: ${attendee.first_name} ${attendee.last_name}`);
+    console.log(`   Session: ${session.name}`);
+    console.log(`   Status: ${status}`);
+    console.log(`   Time UTC: ${checkInUTC.toISOString()}`);
+    console.log(`   Time Local: ${localTimeStr}`);
 
     // Add attendee to session
     session.attendees.push({
@@ -136,14 +215,14 @@ export async function POST(request: NextRequest) {
       unique_id: attendee.unique_id,
       fullName: `${attendee.first_name} ${attendee.last_name}`,
       region: attendee.region,
-      check_in_time: checkInTime,
+      check_in_time: checkInUTC,
       check_in_method: "manual",
       status: status,
     });
 
     await session.save();
 
-    // Update attendee's sessions_cache
+    // ✅ Update attendee's sessions_cache
     const updateData: any = {
       $push: {
         "sessions_cache.attended": session.session_id,
@@ -160,7 +239,7 @@ export async function POST(request: NextRequest) {
 
     await Attendee.findByIdAndUpdate(attendee._id, updateData);
 
-    // Apply auto-penalty to group
+    // ✅ Apply auto-penalty to group if late or absent
     await updateGroupPointsForAttendance(
       attendee._id.toString(),
       status,
@@ -168,9 +247,23 @@ export async function POST(request: NextRequest) {
       session.day
     );
 
+    // Get updated group info for response
+    let groupInfo = null;
+    if (attendee.group_id) {
+      const group = await Group.findById(attendee.group_id);
+      if (group) {
+        groupInfo = {
+          _id: group._id,
+          name: group.name,
+          points: group.points,
+        };
+      }
+    }
+
+    // ✅ Return response with same structure as the staff API
     return NextResponse.json({
       success: true,
-      message: `Checked in to ${session.name}`,
+      message: `${attendee.first_name} ${attendee.last_name} checked in to "${session.name}" (${status})`,
       data: {
         session: {
           _id: session._id,
@@ -185,10 +278,13 @@ export async function POST(request: NextRequest) {
         },
         check_in: {
           method: "manual",
-          time: checkInTime,
+          time: checkInUTC,
+          time_string_local: localTimeStr, // ✅ This is the key field for the frontend
           status: status,
+          checked_by: "Student Self Check-in",
         },
         attendance_stats: session.attendanceStats,
+        group: groupInfo,
         penalty_applied: status === "late" || status === "absent",
         penalty_points: status === "late" ? -2 : status === "absent" ? -3 : 0,
       },

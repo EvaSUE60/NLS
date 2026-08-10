@@ -43,6 +43,9 @@ export default function GenerateSeminarsPage() {
     date: '',
     start_time: '09:00',
     end_time: '10:30',
+    on_time_start: '08:45',
+    on_time_end: '09:15',
+    late_end: '09:30',
     room_prefix: 'Seminar',
     building: 'Main Hall',
     capacity: 30,
@@ -113,6 +116,15 @@ export default function GenerateSeminarsPage() {
     if (selectedTopics.length === 0) {
       errors.topics = 'Select at least one topic';
     }
+    if (!formData.on_time_start) {
+      errors.on_time_start = 'On-time start is required';
+    }
+    if (!formData.on_time_end) {
+      errors.on_time_end = 'On-time end is required';
+    }
+    if (!formData.late_end) {
+      errors.late_end = 'Late end is required';
+    }
     if (!formData.capacity || formData.capacity < 1) {
       errors.capacity = 'Capacity must be at least 1';
     }
@@ -167,6 +179,9 @@ export default function GenerateSeminarsPage() {
         date: formData.date,
         start_time: formData.start_time,
         end_time: formData.end_time,
+        on_time_start: formData.on_time_start,
+        on_time_end: formData.on_time_end,
+        late_end: formData.late_end,
         room_prefix: formData.room_prefix,
         building: formData.building,
         capacity: formData.capacity,
@@ -287,7 +302,7 @@ export default function GenerateSeminarsPage() {
               <p className="mt-1 text-xs text-[#0C0D0D]/40">Seminars will be scheduled on consecutive days from this date</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {/* Start Time */}
               <div>
                 <label className="block text-xs font-bold text-[#0C0D0D] mb-1.5 uppercase tracking-wider">
@@ -297,7 +312,11 @@ export default function GenerateSeminarsPage() {
                   type="time"
                   value={formData.start_time}
                   onChange={(e) => handleChange('start_time', e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-[#ECF4EE] focus:border-[#0C0D0D]/30 focus:outline-none focus:ring-2 focus:ring-[#0C0D0D]/10 transition text-sm font-medium text-[#0C0D0D]"
+                  className={`w-full px-4 py-2.5 rounded-xl border ${
+                    formErrors.start_time
+                      ? 'border-rose-300 focus:ring-rose-500'
+                      : 'border-[#ECF4EE] focus:border-[#0C0D0D]/30'
+                  } focus:outline-none focus:ring-2 focus:ring-[#0C0D0D]/10 transition text-sm font-medium text-[#0C0D0D]`}
                 />
               </div>
 
@@ -310,7 +329,62 @@ export default function GenerateSeminarsPage() {
                   type="time"
                   value={formData.end_time}
                   onChange={(e) => handleChange('end_time', e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-[#ECF4EE] focus:border-[#0C0D0D]/30 focus:outline-none focus:ring-2 focus:ring-[#0C0D0D]/10 transition text-sm font-medium text-[#0C0D0D]"
+                  className={`w-full px-4 py-2.5 rounded-xl border ${
+                    formErrors.end_time
+                      ? 'border-rose-300 focus:ring-rose-500'
+                      : 'border-[#ECF4EE] focus:border-[#0C0D0D]/30'
+                  } focus:outline-none focus:ring-2 focus:ring-[#0C0D0D]/10 transition text-sm font-medium text-[#0C0D0D]`}
+                />
+              </div>
+
+              {/* On-Time Start */}
+              <div>
+                <label className="block text-xs font-bold text-[#0C0D0D] mb-1.5 uppercase tracking-wider">
+                  On-Time Start
+                </label>
+                <input
+                  type="time"
+                  value={formData.on_time_start}
+                  onChange={(e) => handleChange('on_time_start', e.target.value)}
+                  className={`w-full px-4 py-2.5 rounded-xl border ${
+                    formErrors.on_time_start
+                      ? 'border-rose-300 focus:ring-rose-500'
+                      : 'border-[#ECF4EE] focus:border-[#0C0D0D]/30'
+                  } focus:outline-none focus:ring-2 focus:ring-[#0C0D0D]/10 transition text-sm font-medium text-[#0C0D0D]`}
+                />
+              </div>
+
+              {/* On-Time End */}
+              <div>
+                <label className="block text-xs font-bold text-[#0C0D0D] mb-1.5 uppercase tracking-wider">
+                  On-Time End
+                </label>
+                <input
+                  type="time"
+                  value={formData.on_time_end}
+                  onChange={(e) => handleChange('on_time_end', e.target.value)}
+                  className={`w-full px-4 py-2.5 rounded-xl border ${
+                    formErrors.on_time_end
+                      ? 'border-rose-300 focus:ring-rose-500'
+                      : 'border-[#ECF4EE] focus:border-[#0C0D0D]/30'
+                  } focus:outline-none focus:ring-2 focus:ring-[#0C0D0D]/10 transition text-sm font-medium text-[#0C0D0D]`}
+                />
+              </div>
+
+              {/* Late End */}
+              <div>
+                <label className="block text-xs font-bold text-[#0C0D0D] mb-1.5 uppercase tracking-wider">
+                  Late End
+                </label>
+                <input
+                  type="time"
+                  value={formData.late_end}
+                  onChange={(e) => handleChange('late_end', e.target.value)}
+                  className={`w-full px-4 py-2.5 rounded-xl border ${
+                    formErrors.late_end
+                      ? 'border-rose-300 focus:ring-rose-500'
+                      : 'border-[#ECF4EE] focus:border-[#0C0D0D]/30'
+                  } focus:outline-none focus:ring-2 focus:ring-[#0C0D0D]/10 transition text-sm font-medium text-[#0C0D0D]`}
                 />
               </div>
             </div>
