@@ -1,7 +1,7 @@
 // src/app/api/public/register/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/src/lib/mongodb";
-import Seminar, { IParticipant } from "@/src/models/Seminar";
+import Seminar, { ISeminarParticipant } from "@/src/models/Seminar";
 import Attendee from "@/src/models/Attendee";
 
 export async function POST(request: NextRequest) {
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
 
     if (existingTopicRegistration) {
       const existingParticipant = existingTopicRegistration.participants.find(
-        (p: IParticipant) => p.attendeeId.toString() === attendee._id.toString()
+        (p: ISeminarParticipant) => p.attendeeId.toString() === attendee._id.toString()
       );
       
       const day = existingTopicRegistration.day;
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
 
     // Check if already registered for this exact seminar
     const alreadyRegistered = seminar.participants.some(
-      (p: IParticipant) => p.attendeeId.toString() === attendee._id.toString()
+      (p: ISeminarParticipant) => p.attendeeId.toString() === attendee._id.toString()
     );
 
     if (alreadyRegistered) {

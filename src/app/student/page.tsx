@@ -19,7 +19,7 @@ export default function StudentLookupPage() {
     const studentId = nlsId.trim();
 
     if (!studentId) {
-      setError("Please enter your NLS ID.");
+      setError("Please enter your NLS ID or number.");
       return;
     }
 
@@ -27,8 +27,31 @@ export default function StudentLookupPage() {
     setIsLoading(true);
 
     try {
-      // Validate or directly route to student page
-      router.push(`/student/${encodeURIComponent(studentId)}`);
+      // ✅ If the input is just a number (e.g., "003"), construct the full NLS ID
+      let fullNlsId = studentId;
+      
+      // Check if it's just a number (with or without leading zeros)
+      if (/^\d+$/.test(studentId)) {
+        // Pad with zeros to 3 digits
+        const paddedNumber = studentId.padStart(3, '0');
+        const year = new Date().getFullYear();
+        fullNlsId = `NLS-${year}-${paddedNumber}`;
+      } 
+      // Check if it's already a full NLS ID format
+      else if (/^NLS-\d{4}-\d{3}$/.test(studentId.toUpperCase())) {
+        fullNlsId = studentId.toUpperCase();
+      }
+      // Check if it's a partial format like "NLS-2026-003"
+      else if (/^NLS-\d{4}-\d+$/.test(studentId.toUpperCase())) {
+        // Already has NLS prefix but might be missing padding
+        const parts = studentId.toUpperCase().split('-');
+        if (parts.length === 3) {
+          const paddedNumber = parts[2].padStart(3, '0');
+          fullNlsId = `${parts[0]}-${parts[1]}-${paddedNumber}`;
+        }
+      }
+
+      router.push(`/student/${encodeURIComponent(fullNlsId)}`);
     } finally {
       setIsLoading(false);
     }
@@ -67,7 +90,7 @@ export default function StudentLookupPage() {
             </h1>
 
             <p className="text-xs text-[#0C0D0D]/60 font-medium">
-              Enter your NLS ID to view your registration details
+              Enter your NLS ID or number to view your registration details
             </p>
           </div>
 
@@ -75,7 +98,7 @@ export default function StudentLookupPage() {
           <form onSubmit={handleSubmit} className="mt-8 space-y-5">
             <div className="space-y-2">
               <label htmlFor="nlsId" className="block text-xs font-bold uppercase tracking-wider text-[#0C0D0D]">
-                NLS ID <span className="text-rose-500">*</span>
+                NLS ID or Number <span className="text-rose-500">*</span>
               </label>
               
               <div className="relative">
@@ -83,7 +106,7 @@ export default function StudentLookupPage() {
                   id="nlsId"
                   name="nlsId"
                   type="text"
-                  placeholder="NLS-2026-001"
+                  placeholder="e.g., 003 or NLS-2026-003"
                   value={nlsId}
                   onChange={(e) => {
                     setNlsId(e.target.value);
@@ -97,6 +120,10 @@ export default function StudentLookupPage() {
                   } text-xs font-semibold text-[#0C0D0D] focus:outline-none transition-all placeholder:text-[#0C0D0D]/40`}
                 />
                 <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-[#0C0D0D]/40" />
+              </div>
+
+              <div className="flex items-center gap-2 text-[10px] font-medium text-[#0C0D0D]/50">
+                <span>Enter just the number (e.g., <strong className="font-bold text-[#0C0D0D]/70">003</strong>) or full ID</span>
               </div>
 
               {error && (
@@ -129,7 +156,8 @@ export default function StudentLookupPage() {
           {/* Bottom Information */}
           <div className="mt-8 border-t border-[#ECF4EE] pt-6 text-center space-y-1">
             <p className="text-xs font-bold text-[#0C0D0D]/80">
-              Example: <span className="font-mono text-[#0C0D0D]">NLS-2026-001</span>
+              Example: <span className="font-mono text-[#0C0D0D]">003</span> or{" "}
+              <span className="font-mono text-[#0C0D0D]">NLS-2026-003</span>
             </p>
             <p className="text-[11px] text-[#0C0D0D]/50 font-medium">
               Your NLS ID can be found on your registration confirmation email or badge.

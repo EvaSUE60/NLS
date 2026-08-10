@@ -34,10 +34,10 @@ const SESSION_TYPES = [
 
 // Event date mapping
 const EVENT_DAYS: Record<string, number> = {
-  '2026-07-28': 1,
-  '2026-07-29': 2,
-  '2026-07-30': 3,
-  '2026-07-31': 4,
+  '2026-07-09': 1,
+  '2026-07-10': 2,
+  '2026-07-11': 3,
+  '2026-07-12': 4,
 };
 
 // Get current date in YYYY-MM-DD format

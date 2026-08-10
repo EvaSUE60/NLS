@@ -30,6 +30,7 @@ interface SeminarState {
   error: string | null;
   filters: SeminarFilters;
   stats: SeminarStats | null;
+  isGenerating: boolean; // ✅ Added for generate loading state
 
   // ==================== ACTIONS ====================
   fetchSeminars: (filters?: SeminarFilters) => Promise<void>;
@@ -37,7 +38,18 @@ interface SeminarState {
   createSeminar: (data: CreateSeminarData) => Promise<Seminar>;
   updateSeminar: (id: string, data: UpdateSeminarData) => Promise<Seminar>;
   deleteSeminar: (id: string) => Promise<void>;
-  generateSeminars: (data: GenerateSeminarsData) => Promise<{ data: { created: number; skipped: number; total_seminars: number; days_processed: number; seminars_per_day: number; errors?: any[] } }>;
+  generateSeminars: (data: GenerateSeminarsData) => Promise<{
+    data: {
+      created: number;
+      skipped: number;
+      total_seminars: number;
+      days_processed: number;
+      seminars_per_day: number;
+      errors?: any[];
+      created_seminars?: any[];
+      timing_config?: any;
+    };
+  }>;
   fetchStats: (day?: number) => Promise<void>;
   fetchParticipants: (id: string, attended?: boolean) => Promise<void>;
   registerAttendee: (id: string, nls_id: string) => Promise<void>;
@@ -66,6 +78,7 @@ export const useSeminarStore = create<SeminarState>((set, get) => ({
   error: null,
   filters: initialFilters,
   stats: null,
+  isGenerating: false,
 
   // ==================== FETCH SEMINARS ====================
   fetchSeminars: async (filters) => {
@@ -166,16 +179,17 @@ export const useSeminarStore = create<SeminarState>((set, get) => ({
 
   // ==================== GENERATE SEMINARS ====================
   generateSeminars: async (data) => {
-    set({ isProcessing: true, error: null });
+    set({ isGenerating: true, error: null });
     try {
       const response = await seminarService.generateSeminars(data);
+      // Refresh the list after generation
       await get().fetchSeminars();
-      set({ isProcessing: false });
+      set({ isGenerating: false });
       return response.data;
     } catch (error: any) {
       set({
         error: error.response?.data?.message || 'Failed to generate seminars',
-        isProcessing: false,
+        isGenerating: false,
       });
       throw error;
     }

@@ -14,6 +14,7 @@ import {
   SeminarParticipantsResponse,
   SeminarRegisterResponse,
   SeminarAttendanceCheckInResponse,
+  GenerateSeminarsResponse,
 } from '@/src/types/seminar.types';
 
 export const seminarService = {
@@ -47,18 +48,7 @@ export const seminarService = {
 
   // ==================== GENERATE SEMINARS ====================
   generateSeminars: (data: GenerateSeminarsData) =>
-    apiClient.post<{
-      success: boolean;
-      message: string;
-      data: {
-        created: number;
-        skipped: number;
-        errors?: any[];
-        total_seminars: number;
-        days_processed: number;
-        seminars_per_day: number;
-      };
-    }>('/seminars/generate', data),
+    apiClient.post<GenerateSeminarsResponse>('/seminars/generate', data),
 
   // ==================== GET SEMINAR STATS ====================
   getSeminarStats: (day?: number) => {

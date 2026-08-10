@@ -1,3 +1,4 @@
+// src/app/attendance/page.tsx
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -72,7 +73,7 @@ export default function AttendancePage() {
   const [loadingStudent, setLoadingStudent] = useState(false);
   const [studentError, setStudentError] = useState<string | null>(null);
 
-  // Step 2: Sessions - Safely initialize currentDay without UTC date jumps
+  // Step 2: Sessions
   const getCurrentDayFromDate = () => {
     const todayStr = getLocalYYYYMMDD();
 
@@ -121,29 +122,29 @@ export default function AttendancePage() {
   };
 
   const fetchSessions = async (day?: number) => {
-  const targetDay = day || currentDay || getCurrentDayFromDate();
-  setCurrentDay(targetDay);
-  setLoading(true);
-  setError(null);
+    const targetDay = day || currentDay || getCurrentDayFromDate();
+    setCurrentDay(targetDay);
+    setLoading(true);
+    setError(null);
 
-  try {
-    const response = await fetch(`/api/public/sessions?day=${targetDay}`);
-    const data = await response.json();
+    try {
+      const response = await fetch(`/api/public/sessions?day=${targetDay}`);
+      const data = await response.json();
 
-    if (data.success) {
-      setAllSessions(data.data.sessions || []);
-    } else {
-      setError(data.message || 'Failed to load sessions');
-      toast.error(data.message || 'Failed to load sessions');
+      if (data.success) {
+        setAllSessions(data.data.sessions || []);
+      } else {
+        setError(data.message || 'Failed to load sessions');
+        toast.error(data.message || 'Failed to load sessions');
+      }
+    } catch (err) {
+      console.error('Fetch error:', err);
+      setError('Failed to load sessions. Please try again.');
+      toast.error('Failed to load sessions');
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error('Fetch error:', err);
-    setError('Failed to load sessions. Please try again.');
-    toast.error('Failed to load sessions');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const filteredSessions = allSessions.filter(
     (s: Session) => s.day === currentDay && s.is_active
@@ -281,16 +282,82 @@ export default function AttendancePage() {
     return type === 'morning' ? 'Morning' : 'Afternoon';
   };
 
+  // ✅ FIXED: Proper status badge rendering
   const renderStatusBadge = (status: string) => {
     const normalized = status?.toLowerCase();
 
-    if (normalized === 'on_time') {
+    if (normalized === 'on_time' || normalized === 'on-time' || normalized === 'on time') {
       return <span className="font-bold text-[#15803D]">✅ On Time</span>;
     }
     if (normalized === 'late') {
       return <span className="font-bold text-[#B45309]">⚠️ Late</span>;
     }
-    return <span className="font-bold text-[#BE123C]">❌ Absent</span>;
+    if (normalized === 'absent') {
+      return <span className="font-bold text-[#BE123C]">❌ Absent</span>;
+    }
+    // Default fallback
+    return <span className="font-bold text-[#0C0D0D]">✅ {status || 'Checked In'}</span>;
+  };
+
+  // ✅ Get status from checkin result with proper fallbacks
+  const getCheckinStatus = () => {
+    if (!checkinResult) return '';
+
+    // Try different possible paths where status might be
+    const status = 
+      checkinResult?.check_in?.status ||
+      checkinResult?.attendance?.status ||
+      checkinResult?.status ||
+      '';
+
+    return status;
+  };
+
+  // ✅ Get session name from checkin result
+  const getSessionName = () => {
+    if (!checkinResult) return pendingSession?.name || '';
+
+    return (
+      checkinResult?.session?.name ||
+      checkinResult?.session_name ||
+      pendingSession?.name ||
+      ''
+    );
+  };
+
+  // ✅ Get attendee name from checkin result
+  const getAttendeeName = () => {
+    if (!checkinResult) return studentInfo?.full_name || '';
+
+    return (
+      checkinResult?.attendee?.full_name ||
+      checkinResult?.attendee_name ||
+      studentInfo?.full_name ||
+      ''
+    );
+  };
+
+  // ✅ Get day from checkin result
+  const getSessionDay = () => {
+    if (!checkinResult) return pendingSession?.day || 0;
+
+    return (
+      checkinResult?.session?.day ||
+      checkinResult?.day ||
+      pendingSession?.day ||
+      0
+    );
+  };
+
+  // ✅ Get check-in time
+  const getCheckinTime = () => {
+    if (!checkinResult) return 'Just now';
+
+    return (
+      checkinResult?.check_in?.time_string_local ||
+      checkinResult?.check_in_time ||
+      'Just now'
+    );
   };
 
   useEffect(() => {
@@ -666,7 +733,7 @@ export default function AttendancePage() {
             </motion.div>
           )}
 
-          {/* Step 4: Success */}
+          {/* Step 4: Success - ✅ FIXED */}
           {currentStep === 4 && (
             <motion.div
               key="step4"
@@ -685,7 +752,7 @@ export default function AttendancePage() {
                   <p className="text-xs text-[#0C0D0D]/60 mt-0.5">
                     Checked in to{' '}
                     <span className="text-[#0C0D0D] font-bold">
-                      {checkinResult?.session?.name || pendingSession?.name}
+                      {getSessionName()}
                     </span>
                   </p>
                 </div>
@@ -694,30 +761,30 @@ export default function AttendancePage() {
                   <div className="flex justify-between border-b border-[#d2e5d7]/60 pb-1">
                     <span className="text-[#0C0D0D]/50 font-medium">Student</span>
                     <span className="font-bold text-[#0C0D0D]">
-                      {checkinResult?.attendee?.full_name || studentInfo?.full_name}
+                      {getAttendeeName()}
                     </span>
                   </div>
                   <div className="flex justify-between border-b border-[#d2e5d7]/60 pb-1">
                     <span className="text-[#0C0D0D]/50 font-medium">Session</span>
                     <span className="font-bold text-emerald-800">
-                      {checkinResult?.session?.name || pendingSession?.name}
+                      {getSessionName()}
                     </span>
                   </div>
                   <div className="flex justify-between border-b border-[#d2e5d7]/60 pb-1">
                     <span className="text-[#0C0D0D]/50 font-medium">Day</span>
                     <span className="font-bold text-[#0C0D0D]">
-                      Day {checkinResult?.session?.day || pendingSession?.day}
+                      Day {getSessionDay()}
                     </span>
                   </div>
                   <div className="flex justify-between border-b border-[#d2e5d7]/60 pb-1">
                     <span className="text-[#0C0D0D]/50 font-medium">Check-in Time</span>
                     <span className="font-bold font-mono text-[#0C0D0D]">
-                      {checkinResult?.check_in?.time_string_local || 'Just now'}
+                      {getCheckinTime()}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[#0C0D0D]/50 font-medium">Status</span>
-                    {renderStatusBadge(checkinResult?.check_in?.status)}
+                    {renderStatusBadge(getCheckinStatus())}
                   </div>
                 </div>
 

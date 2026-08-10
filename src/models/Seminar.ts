@@ -1,7 +1,9 @@
 // src/models/Seminar.ts
 import mongoose, { Schema, Document } from "mongoose";
 
-export interface IParticipant {
+// ==================== INTERFACES ====================
+
+export interface ISeminarParticipant {
   attendeeId: mongoose.Types.ObjectId;
   unique_id: string;
   fullName: string;
@@ -11,6 +13,8 @@ export interface IParticipant {
   attendedAt?: Date;
   check_in_method?: "qr_code" | "manual";
   checkedInBy?: mongoose.Types.ObjectId;
+  status?: 'on_time' | 'late' | 'absent';
+  points_awarded?: number;
 }
 
 export interface IEvaluation {
@@ -21,19 +25,31 @@ export interface IEvaluation {
   attendeeId?: mongoose.Types.ObjectId;
 }
 
+export interface ISeminarAttendanceStats {
+  total: number;
+  on_time: number;
+  late: number;
+  absent: number;
+}
+
 export interface ISeminar extends Document {
   // ==================== IDENTIFICATION ====================
-  seminar_id: string;              // SEM-2026-001
-  seminar_key: string;             // "engaging-islam"
-  name: string;                    // "Engaging Islam"
+  seminar_id: string;
+  seminar_key: string;
+  name: string;
   category?: string;
   description?: string;
   
   // ==================== SCHEDULING ====================
-  day: number;                     // 1, 2, 3, 4
+  day: number;
   date: Date;
-  start_time: string;              // "15:00"
-  end_time: string;                // "16:30"
+  start_time: string;
+  end_time: string;
+  
+  // ==================== ATTENDANCE TIMING ====================
+  on_time_start?: string;
+  on_time_end?: string;
+  late_end?: string;
   
   // ==================== LOCATION ====================
   room?: string;
@@ -41,10 +57,13 @@ export interface ISeminar extends Document {
   
   // ==================== CAPACITY ====================
   capacity: number;
-  participants: IParticipant[];
+  participants: ISeminarParticipant[];
   
   // ==================== EVALUATIONS ====================
   evaluations: IEvaluation[];
+  
+  // ==================== STATS ====================
+  attendance_stats?: ISeminarAttendanceStats;
   
   // ==================== STATUS ====================
   isClosed: boolean;
@@ -64,7 +83,9 @@ export interface ISeminar extends Document {
   averageRating?: number;
 }
 
-const ParticipantSchema = new Schema<IParticipant>({
+// ==================== SCHEMAS ====================
+
+const SeminarParticipantSchema = new Schema<ISeminarParticipant>({
   attendeeId: {
     type: Schema.Types.ObjectId,
     ref: "Attendee",
@@ -104,6 +125,14 @@ const ParticipantSchema = new Schema<IParticipant>({
     type: Schema.Types.ObjectId,
     ref: "User",
   },
+  status: {
+    type: String,
+    enum: ["on_time", "late", "absent"],
+  },
+  points_awarded: {
+    type: Number,
+    default: 0,
+  },
 });
 
 const EvaluationSchema = new Schema<IEvaluation>({
@@ -133,9 +162,18 @@ const EvaluationSchema = new Schema<IEvaluation>({
   },
 });
 
+const SeminarAttendanceStatsSchema = new Schema<ISeminarAttendanceStats>({
+  total: { type: Number, default: 0 },
+  on_time: { type: Number, default: 0 },
+  late: { type: Number, default: 0 },
+  absent: { type: Number, default: 0 },
+});
+
+// ==================== MAIN SCHEMA ====================
+
 const SeminarSchema = new Schema<ISeminar>(
   {
-    // ==================== IDENTIFICATION ====================
+    // Identification
     seminar_id: {
       type: String,
       required: true,
@@ -162,7 +200,7 @@ const SeminarSchema = new Schema<ISeminar>(
       trim: true,
     },
     
-    // ==================== SCHEDULING ====================
+    // Scheduling
     day: {
       type: Number,
       required: true,
@@ -186,7 +224,24 @@ const SeminarSchema = new Schema<ISeminar>(
       match: /^([0-9]{2}):([0-9]{2})$/,
     },
     
-    // ==================== LOCATION ====================
+    // Attendance Timing - ✅ Make these required
+    on_time_start: {
+      type: String,
+      required: true,
+      match: /^([0-9]{2}):([0-9]{2})$/,
+    },
+    on_time_end: {
+      type: String,
+      required: true,
+      match: /^([0-9]{2}):([0-9]{2})$/,
+    },
+    late_end: {
+      type: String,
+      required: true,
+      match: /^([0-9]{2}):([0-9]{2})$/,
+    },
+    
+    // Location
     room: {
       type: String,
       trim: true,
@@ -196,7 +251,7 @@ const SeminarSchema = new Schema<ISeminar>(
       trim: true,
     },
     
-    // ==================== CAPACITY ====================
+    // Capacity
     capacity: {
       type: Number,
       required: true,
@@ -204,17 +259,28 @@ const SeminarSchema = new Schema<ISeminar>(
       default: 30,
     },
     participants: {
-      type: [ParticipantSchema],
+      type: [SeminarParticipantSchema],
       default: [],
     },
     
-    // ==================== EVALUATIONS ====================
+    // Evaluations
     evaluations: {
       type: [EvaluationSchema],
       default: [],
     },
     
-    // ==================== STATUS ====================
+    // Stats
+    attendance_stats: {
+      type: SeminarAttendanceStatsSchema,
+      default: () => ({
+        total: 0,
+        on_time: 0,
+        late: 0,
+        absent: 0,
+      }),
+    },
+    
+    // Status
     isClosed: {
       type: Boolean,
       default: false,
@@ -284,6 +350,28 @@ SeminarSchema.virtual("averageRating").get(function() {
   return Math.round((total / this.evaluations.length) * 10) / 10;
 });
 
+// ==================== METHODS ====================
+
+SeminarSchema.methods.updateAttendanceStats = function() {
+  const stats = {
+    total: this.participants.length,
+    on_time: this.participants.filter((p: ISeminarParticipant) => p.status === 'on_time').length,
+    late: this.participants.filter((p: ISeminarParticipant) => p.status === 'late').length,
+    absent: this.participants.filter((p: ISeminarParticipant) => p.status === 'absent').length,
+  };
+  
+  this.attendance_stats = stats;
+  return stats;
+};
+
+SeminarSchema.methods.hasAttended = function(attendeeId: mongoose.Types.ObjectId): boolean {
+  return this.participants.some(
+    (p: ISeminarParticipant) => 
+      p.attendeeId.toString() === attendeeId.toString() && 
+      p.attended === true
+  );
+};
+
 // ==================== STATIC METHODS ====================
 
 SeminarSchema.statics.hasAttendedTopic = async function(
@@ -315,6 +403,20 @@ SeminarSchema.statics.getAttendeeSeminarsByDay = async function(
     "participants.attendeeId": attendeeId,
   });
 };
+
+// ==================== PRE-HOOKS ====================
+
+SeminarSchema.pre('save', async function (this: ISeminar) {
+  // Update attendance stats if there are participants
+  if (this.participants && this.participants.length > 0) {
+    this.attendance_stats = {
+      total: this.participants.length,
+      on_time: this.participants.filter((p: ISeminarParticipant) => p.status === 'on_time').length,
+      late: this.participants.filter((p: ISeminarParticipant) => p.status === 'late').length,
+      absent: this.participants.filter((p: ISeminarParticipant) => p.status === 'absent').length,
+    };
+  }
+});
 
 // ==================== TO JSON / TO OBJECT ====================
 
