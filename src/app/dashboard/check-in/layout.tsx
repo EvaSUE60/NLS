@@ -1,7 +1,7 @@
 // src/app/dashboard/check-in/layout.tsx
 'use client';
 
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogOut, User, Sparkles, Menu, X } from 'lucide-react';
 import { ProtectedRoute } from '@/src/components/shared/ProtectedRoute';
@@ -11,6 +11,16 @@ function CheckInLayout({ children }: { children: ReactNode }) {
   const { isLoading, user, logout } = useAuth();
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // ✅ Ensure only staff and admins can access this page
+  useEffect(() => {
+    if (!isLoading && user) {
+      // If user is not staff or admin, redirect to dashboard
+      if (user.role !== 'staff' && user.role !== 'admin' && user.role !== 'super_admin') {
+        router.replace('/dashboard');
+      }
+    }
+  }, [isLoading, user, router]);
 
   if (isLoading) {
     return (
