@@ -260,7 +260,7 @@ export default function StudentPage({ params }: StudentPageProps) {
                   <div className="space-y-3">
                     <InfoRow label="Group Name" value={group.name} />
                     <InfoRow label="Group Code" value={group.group_code} />
-                    <InfoRow label="Points" value={group.points} />
+                    
                     <InfoRow
                       label="Capacity"
                       value={`${group.member_count} / ${group.max_size} members`}
@@ -274,26 +274,7 @@ export default function StudentPage({ params }: StudentPageProps) {
 
           </div>
 
-          {/* RIGHT COLUMN: Attendance Metrics & Check-in Details */}
-          <div className="space-y-6">
-            {/* Session Attendance Card */}
-            <InfoCard title="Session Attendance" icon={CalendarCheck}>
-              <div className="grid grid-cols-2 gap-3">
-                <MetricBox label="Total" value={sessions.total_sessions} color="text-[#0C0D0D]" />
-                <MetricBox label="On Time" value={sessions.on_time} color="text-emerald-700" />
-                <MetricBox label="Late" value={sessions.late} color="text-amber-700" />
-                <MetricBox label="Absent" value={sessions.absent} color="text-rose-600" />
-              </div>
-
-              <div className="mt-5 flex items-center justify-between border-t border-[#ECF4EE] pt-4">
-                <span className="text-xs font-bold text-[#0C0D0D]/50">Overall Attendance Rate</span>
-                <span className="text-sm font-black text-[#0C0D0D] bg-[#ECF4EE] border border-[#d2e5d7] px-3 py-1 rounded-full">
-                  {sessions.attendance_rate}
-                </span>
-              </div>
-            </InfoCard>
-          </div>
-
+          
         </div>
       </div>
     </main>

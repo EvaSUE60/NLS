@@ -71,13 +71,7 @@ export default function Home() {
             
           </div>
 
-          {/* Feature Badges Grid */}
-          <div className="mt-16 grid grid-cols-2 gap-3 sm:grid-cols-4 w-full max-w-3xl">
-            <FeatureCard icon={Building2} label="Room Allocations" />
-            <FeatureCard icon={CalendarCheck} label="Attendance Records" />
-            <FeatureCard icon={Users} label="Small Groups" />
-            <FeatureCard icon={ShieldCheck} label="Secure Access" />
-          </div>
+        
 
         </div>
       </section>
