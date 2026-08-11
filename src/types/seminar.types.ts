@@ -225,6 +225,113 @@ export interface SeminarAttendanceCheckInResponse {
   };
 }
 
+// ==================== EXPORT TYPES ====================
+export interface SeminarExportOptions {
+  format?: 'json' | 'csv';
+  day?: number;
+  seminar_key?: string;
+  isActive?: boolean;
+}
+
+export interface SeminarExportDataItem {
+  seminar_info: {
+    seminar_id: string;
+    seminar_key: string;
+    name: string;
+    category: string;
+    description: string;
+    day: number;
+    date: string;
+    start_time: string;
+    end_time: string;
+    on_time_start?: string;
+    on_time_end?: string;
+    late_end?: string;
+    room: string;
+    building: string;
+    capacity: number;
+    isClosed: boolean;
+    is_active: boolean;
+  };
+  statistics: {
+    total_registered: number;
+    on_time: number;
+    late: number;
+    absent: number;
+    attendance_rate: string;
+    points_summary: {
+      on_time_bonus: number;
+      late_penalty: number;
+      absent_penalty: number;
+      total: number;
+    };
+  };
+  participants: Array<{
+    user_id: string;
+    name: string;
+    email: string;
+    attended: boolean;
+    status: string;
+    check_in_time: string | null;
+    registered_at: string | null;
+  }>;
+}
+
+export interface SeminarExportResponse {
+  success: boolean;
+  message: string;
+  metadata: {
+    exported_at: string;
+    total_seminars: number;
+    format: string;
+  };
+  data: SeminarExportDataItem[];
+}
+
+export interface ParticipantExportOptions {
+  format?: 'json' | 'csv';
+}
+
+export interface ParticipantExportData {
+  seminar: {
+    id: string;
+    seminar_id: string;
+    name: string;
+    day: number;
+    date: string;
+    start_time: string;
+    end_time: string;
+    room?: string;
+    building?: string;
+    capacity: number;
+    on_time_start?: string;
+    on_time_end?: string;
+    late_end?: string;
+  };
+  statistics: {
+    total_registered: number;
+    on_time: number;
+    late: number;
+    absent: number;
+    attendance_rate: string;
+  };
+  participants: Array<{
+    user_id: string;
+    name: string;
+    email: string;
+    attended: boolean;
+    status: string;
+    check_in_time: string | null;
+    registered_at: string | null;
+    points: number;
+  }>;
+}
+
+export interface ParticipantExportResponse {
+  success: boolean;
+  data: ParticipantExportData;
+}
+
 export interface SeminarResponse {
   success: boolean;
   data: Seminar;

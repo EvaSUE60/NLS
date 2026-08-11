@@ -13,24 +13,19 @@ import {
   Edit,
   Trash2,
   Eye,
-  Users,
   Clock,
   ChevronLeft,
   ChevronRight,
   Grid,
   List,
   Loader2,
-  Sparkles,
-  CheckCircle,
-  XCircle,
-  UserPlus,
-  FileText,
   Zap,
   Building2,
   TrendingUp,
   Users2,
   CalendarDays,
-  BarChart3,
+  FileText,
+  UserPlus,
 } from 'lucide-react';
 import { Badge } from '@/src/components/ui/Badge';
 import { Button } from '@/src/components/ui/Button';
@@ -45,9 +40,15 @@ export default function SeminarsPage() {
     error,
     stats,
     fetchSeminars,
-    delete: deleteSeminar, // ✅ Fixed: use 'delete' from the hook
+    delete: deleteSeminar,
     clearError,
     fetchStats,
+    // Export state
+    isExporting,
+    exportProgress,
+    exportError,
+    exportSeminars,
+    clearExportError,
   } = useSeminar();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -61,6 +62,14 @@ export default function SeminarsPage() {
     fetchSeminars();
     fetchStats();
   }, []);
+
+  // Show export error toast
+  useEffect(() => {
+    if (exportError) {
+      toast.error(exportError);
+      clearExportError();
+    }
+  }, [exportError, clearExportError]);
 
   // Filter seminars
   const filteredSeminars = seminars.filter((s) => {
@@ -80,7 +89,7 @@ export default function SeminarsPage() {
 
     setIsDeleting(id);
     try {
-      await deleteSeminar(id); // ✅ Now using the correct function
+      await deleteSeminar(id);
       toast.success(`Seminar "${name}" deleted successfully`);
       fetchStats();
     } catch (error: any) {
@@ -97,6 +106,30 @@ export default function SeminarsPage() {
       toast.success('Seminars refreshed');
     } catch {
       toast.error('Failed to refresh seminars');
+    }
+  };
+
+  const handleExportCSV = async () => {
+    try {
+      // Build export options based on current filters
+      const options: any = {
+        format: 'csv',
+      };
+      
+      if (selectedDay !== 'all') {
+        options.day = selectedDay;
+      }
+      
+      if (selectedStatus === 'active') {
+        options.isActive = true;
+      } else if (selectedStatus === 'closed') {
+        options.isActive = false;
+      }
+
+      await exportSeminars(options);
+      toast.success('CSV export downloaded successfully!');
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to export seminars');
     }
   };
 
@@ -204,9 +237,24 @@ export default function SeminarsPage() {
                 New Seminar
               </button>
             </Link>
-            <button className="flex items-center gap-2 bg-white/80 hover:bg-white text-[#0C0D0D] border border-[#0C0D0D]/10 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all shadow-2xs cursor-pointer">
-              <Download className="h-4 w-4 text-[#0C0D0D]/60" />
-              Export
+            
+            {/* Export CSV Button - Single button, no dropdown */}
+            <button 
+              onClick={handleExportCSV}
+              disabled={isExporting || filteredSeminars.length === 0}
+              className="flex items-center gap-2 bg-white/80 hover:bg-white text-[#0C0D0D] border border-[#0C0D0D]/10 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isExporting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin text-[#0C0D0D]/60" />
+                  {exportProgress > 0 && exportProgress < 100 ? `${exportProgress}%` : 'Exporting...'}
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4 text-[#0C0D0D]/60" />
+                  Export CSV
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -330,6 +378,25 @@ export default function SeminarsPage() {
           </div>
         </div>
       </div>
+
+      {/* Export Progress Bar - Shows when exporting */}
+      {isExporting && (
+        <div className="bg-white rounded-2xl border border-[#ECF4EE] p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin text-[#0C0D0D]" />
+              <span className="text-xs font-bold text-[#0C0D0D]">Exporting seminars as CSV...</span>
+            </div>
+            <span className="text-xs font-bold text-[#0C0D0D]/60">{exportProgress}%</span>
+          </div>
+          <div className="w-full bg-[#ECF4EE] rounded-full h-2 overflow-hidden">
+            <div 
+              className="h-2 bg-[#0C0D0D] rounded-full transition-all duration-300"
+              style={{ width: `${exportProgress}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* ==================== SEMINARS DISPLAY ==================== */}
       {filteredSeminars.length === 0 ? (

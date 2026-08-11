@@ -10,6 +10,8 @@ import {
   SeminarFilters,
   SeminarStats,
   Participant,
+  SeminarExportOptions,
+  ParticipantExportOptions,
 } from '@/src/types/seminar.types';
 import { seminarService } from '@/src/service/seminar.service';
 
@@ -30,7 +32,12 @@ interface SeminarState {
   error: string | null;
   filters: SeminarFilters;
   stats: SeminarStats | null;
-  isGenerating: boolean; // ✅ Added for generate loading state
+  isGenerating: boolean;
+
+  // Export state
+  isExporting: boolean;
+  exportProgress: number;
+  exportError: string | null;
 
   // ==================== ACTIONS ====================
   fetchSeminars: (filters?: SeminarFilters) => Promise<void>;
@@ -55,6 +62,11 @@ interface SeminarState {
   registerAttendee: (id: string, nls_id: string) => Promise<void>;
   checkInAttendance: (id: string, nls_id: string, method?: 'manual' | 'qr_code') => Promise<void>;
   
+  // Export actions
+  exportSeminars: (options?: SeminarExportOptions) => Promise<void>;
+  exportParticipants: (id: string, options?: ParticipantExportOptions) => Promise<void>;
+  clearExportError: () => void;
+
   clearSelected: () => void;
   clearError: () => void;
   resetFilters: () => void;
@@ -79,6 +91,9 @@ export const useSeminarStore = create<SeminarState>((set, get) => ({
   filters: initialFilters,
   stats: null,
   isGenerating: false,
+  isExporting: false,
+  exportProgress: 0,
+  exportError: null,
 
   // ==================== FETCH SEMINARS ====================
   fetchSeminars: async (filters) => {
@@ -264,9 +279,75 @@ export const useSeminarStore = create<SeminarState>((set, get) => ({
     }
   },
 
+  // ==================== EXPORT SEMINARS (BULK) ====================
+  exportSeminars: async (options) => {
+    set({ isExporting: true, exportProgress: 0, exportError: null });
+    try {
+      set({ exportProgress: 30 });
+      const exportOptions = { ...options, format: options?.format || 'csv' } as SeminarExportOptions;
+      const response = await seminarService.exportSeminars(exportOptions);
+      set({ exportProgress: 80 });
+
+      if (exportOptions.format === 'csv') {
+        // Handle blob download
+        const blob = new Blob([response.data as any], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `seminars_export_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }
+
+      set({ exportProgress: 100, isExporting: false });
+    } catch (error: any) {
+      set({
+        exportError: error.response?.data?.message || 'Failed to export seminars',
+        isExporting: false,
+        exportProgress: 0,
+      });
+      throw error;
+    }
+  },
+
+  // ==================== EXPORT PARTICIPANTS ====================
+  exportParticipants: async (id, options) => {
+    set({ isExporting: true, exportProgress: 0, exportError: null });
+    try {
+      set({ exportProgress: 30 });
+      const exportOptions = { ...options, format: options?.format || 'csv' } as ParticipantExportOptions;
+      const response = await seminarService.exportParticipants(id, exportOptions);
+      set({ exportProgress: 80 });
+
+      if (exportOptions.format === 'csv') {
+        const blob = new Blob([response.data as any], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `seminar_participants_${id}_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }
+
+      set({ exportProgress: 100, isExporting: false });
+    } catch (error: any) {
+      set({
+        exportError: error.response?.data?.message || 'Failed to export participants',
+        isExporting: false,
+        exportProgress: 0,
+      });
+      throw error;
+    }
+  },
+
   // ==================== UTILITIES ====================
   clearSelected: () => set({ selectedSeminar: null, participants: [], participantsStats: null }),
   clearError: () => set({ error: null }),
+  clearExportError: () => set({ exportError: null }),
   resetFilters: () => {
     set({ filters: initialFilters });
     get().fetchSeminars(initialFilters);

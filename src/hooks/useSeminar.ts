@@ -18,6 +18,11 @@ export const useSeminar = (autoFetch: boolean = true) => {
     filters,
     stats,
 
+    // Export state
+    isExporting,
+    exportProgress,
+    exportError,
+
     fetchSeminars,
     fetchSeminar,
     createSeminar,
@@ -28,6 +33,12 @@ export const useSeminar = (autoFetch: boolean = true) => {
     fetchParticipants,
     registerAttendee,
     checkInAttendance,
+
+    // Export actions
+    exportSeminars,
+    exportParticipants,
+    clearExportError,
+
     clearSelected,
     clearError,
     resetFilters,
@@ -67,6 +78,11 @@ export const useSeminar = (autoFetch: boolean = true) => {
     filters,
     stats,
 
+    // Export state
+    isExporting,
+    exportProgress,
+    exportError,
+
     // Methods
     fetchSeminars,
     fetchSeminar,
@@ -79,6 +95,11 @@ export const useSeminar = (autoFetch: boolean = true) => {
     register: registerAttendee,
     checkIn: checkInAttendance,
     
+    // Export methods
+    exportSeminars,
+    exportParticipants,
+    clearExportError,
+
     // Filters & Utilities
     filterByDay,
     filterByTopic,

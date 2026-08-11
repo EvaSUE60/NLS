@@ -15,6 +15,10 @@ import {
   SeminarRegisterResponse,
   SeminarAttendanceCheckInResponse,
   GenerateSeminarsResponse,
+  SeminarExportOptions,
+  SeminarExportResponse,
+  ParticipantExportOptions,
+  ParticipantExportResponse,
 } from '@/src/types/seminar.types';
 
 export const seminarService = {
@@ -72,4 +76,36 @@ export const seminarService = {
       nls_id,
       method,
     }),
+
+  // ==================== EXPORT SEMINARS (BULK) ====================
+  exportSeminars: (options?: SeminarExportOptions) => {
+    const params = new URLSearchParams();
+    if (options?.format) params.append('format', options.format);
+    if (options?.day) params.append('day', String(options.day));
+    if (options?.seminar_key) params.append('seminar_key', options.seminar_key);
+    if (options?.isActive !== undefined) params.append('isActive', String(options.isActive));
+
+    const queryString = params.toString();
+    const url = `/seminars/export${queryString ? `?${queryString}` : ''}`;
+
+    // If CSV, return as blob for file download
+    if (options?.format === 'csv') {
+      return apiClient.get<Blob>(url, { responseType: 'blob' });
+    }
+    return apiClient.get<SeminarExportResponse>(url);
+  },
+
+  // ==================== EXPORT SEMINAR PARTICIPANTS ====================
+  exportParticipants: (id: string, options?: ParticipantExportOptions) => {
+    const params = new URLSearchParams();
+    if (options?.format) params.append('format', options.format);
+
+    const queryString = params.toString();
+    const url = `/seminars/${id}/export/participants${queryString ? `?${queryString}` : ''}`;
+
+    if (options?.format === 'csv') {
+      return apiClient.get<Blob>(url, { responseType: 'blob' });
+    }
+    return apiClient.get<ParticipantExportResponse>(url);
+  },
 };

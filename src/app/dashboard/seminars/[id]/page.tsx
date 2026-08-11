@@ -52,6 +52,12 @@ export default function SeminarDetailsPage({ params }: SeminarDetailsPageProps) 
     delete: deleteSeminar,
     clearSelected,
     clearError,
+    // Export state
+    isExporting,
+    exportProgress,
+    exportError,
+    exportParticipants,
+    clearExportError,
   } = useSeminar();
 
   const [isDeleting, setIsDeleting] = useState(false);
@@ -68,6 +74,14 @@ export default function SeminarDetailsPage({ params }: SeminarDetailsPageProps) 
       fetchParticipants(id, showParticipants === 'all' ? undefined : showParticipants === 'attended');
     }
   }, [showParticipants, seminar]);
+
+  // Show export error toast
+  useEffect(() => {
+    if (exportError) {
+      toast.error(exportError);
+      clearExportError();
+    }
+  }, [exportError, clearExportError]);
 
   const handleDelete = async () => {
     if (!confirm(`Are you sure you want to delete "${seminar?.name}"?`)) {
@@ -90,6 +104,26 @@ export default function SeminarDetailsPage({ params }: SeminarDetailsPageProps) 
     await fetchSeminar(id);
     await fetchParticipants(id);
     toast.success('Refreshed');
+  };
+
+  const handleExportParticipantsCSV = async () => {
+    try {
+      // Build options based on current filter
+      const options: any = {
+        format: 'csv',
+      };
+      
+      if (showParticipants === 'attended') {
+        options.attended = true;
+      } else if (showParticipants === 'not-attended') {
+        options.attended = false;
+      }
+
+      await exportParticipants(id, options);
+      toast.success('Participants exported successfully!');
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to export participants');
+    }
   };
 
   const getDayLabel = (day: number) => {
@@ -180,7 +214,7 @@ export default function SeminarDetailsPage({ params }: SeminarDetailsPageProps) 
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap">
           <button
             onClick={handleRefresh}
             className="p-2.5 bg-white border border-[#ECF4EE] rounded-xl text-[#0C0D0D]/70 hover:text-[#0C0D0D] hover:border-[#0C0D0D]/20 transition-all"
@@ -304,15 +338,39 @@ export default function SeminarDetailsPage({ params }: SeminarDetailsPageProps) 
                 </div>
               </button>
             </Link>
-            <button className="w-full flex items-center gap-3 bg-white hover:bg-[#ECF4EE] transition-colors p-3 rounded-xl border border-[#ECF4EE]">
+            
+            {/* Export Button - Updated with functionality */}
+            <button 
+              onClick={handleExportParticipantsCSV}
+              disabled={isExporting || participants.length === 0}
+              className="w-full flex items-center gap-3 bg-white hover:bg-[#ECF4EE] transition-colors p-3 rounded-xl border border-[#ECF4EE] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               <div className="p-2 rounded-xl bg-[#ECF4EE] text-[#0C0D0D]">
-                <Download className="h-4 w-4" />
+                {isExporting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
               </div>
-              <div className="text-left">
-                <p className="text-xs font-bold text-[#0C0D0D]">Export Report</p>
-                <p className="text-[10px] text-[#0C0D0D]/50">Download attendance data</p>
+              <div className="text-left flex-1">
+                <p className="text-xs font-bold text-[#0C0D0D]">
+                  {isExporting ? `Exporting... ${exportProgress}%` : 'Export Participants CSV'}
+                </p>
+                <p className="text-[10px] text-[#0C0D0D]/50">
+                  {isExporting 
+                    ? 'Please wait...' 
+                    : participants.length > 0 
+                      ? `Download ${participants.length} participants` 
+                      : 'No participants to export'}
+                </p>
               </div>
+              {!isExporting && participants.length > 0 && (
+                <Badge variant="info" className="text-[10px] font-bold px-2 py-0.5 rounded-lg">
+                  CSV
+                </Badge>
+              )}
             </button>
+
             <button className="w-full flex items-center gap-3 bg-white hover:bg-[#ECF4EE] transition-colors p-3 rounded-xl border border-[#ECF4EE]">
               <div className="p-2 rounded-xl bg-[#ECF4EE] text-[#0C0D0D]">
                 <BarChart3 className="h-4 w-4" />
@@ -323,6 +381,22 @@ export default function SeminarDetailsPage({ params }: SeminarDetailsPageProps) 
               </div>
             </button>
           </div>
+
+          {/* Export Progress Bar - Shows when exporting */}
+          {isExporting && (
+            <div className="mt-4 pt-4 border-t border-[#ECF4EE]">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-bold text-[#0C0D0D]/60">Exporting...</span>
+                <span className="text-xs font-bold text-[#0C0D0D]/60">{exportProgress}%</span>
+              </div>
+              <div className="w-full bg-[#ECF4EE] rounded-full h-1.5 overflow-hidden">
+                <div 
+                  className="h-1.5 bg-[#0C0D0D] rounded-full transition-all duration-300"
+                  style={{ width: `${exportProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
         </Card>
       </div>
 
@@ -350,6 +424,22 @@ export default function SeminarDetailsPage({ params }: SeminarDetailsPageProps) 
               <option value="attended">Attended</option>
               <option value="not-attended">Not Attended</option>
             </select>
+            
+            {/* Quick Export Button in Participants Header */}
+            {participants.length > 0 && (
+              <button
+                onClick={handleExportParticipantsCSV}
+                disabled={isExporting}
+                className="flex items-center gap-1.5 px-3 py-2 bg-[#ECF4EE] hover:bg-[#d2e5d7] rounded-xl text-xs font-bold text-[#0C0D0D] transition-colors disabled:opacity-50"
+              >
+                {isExporting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5" />
+                )}
+                Export CSV
+              </button>
+            )}
           </div>
         </div>
 
