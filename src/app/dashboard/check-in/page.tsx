@@ -3,7 +3,6 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
-  UserCheck,
   Loader2,
   Search,
   X,
@@ -15,6 +14,9 @@ import {
   Clock,
   BookOpen,
   Repeat,
+  Calendar,
+  Shield,
+  Key,
 } from 'lucide-react';
 import { Badge } from '@/src/components/ui/Badge';
 import { Button } from '@/src/components/ui/Button';
@@ -27,12 +29,11 @@ import { AttendeeSearchResult } from '@/src/types/checkin.types';
 import { Seminar, Participant } from '@/src/types/seminar.types';
 import { Session } from '@/src/types/session.types';
 import { 
-  ArrivalCheckInResponse,
   SessionCheckInResponse,
   SeminarCheckInResponse,
 } from '@/src/types/checkin.types';
 
-type CheckinType = 'arrival' | 'session' | 'seminar';
+type CheckinType = 'session' | 'seminar';
 
 interface CheckinOption {
   id: CheckinType;
@@ -51,16 +52,22 @@ interface SessionOption {
   isActive: boolean;
 }
 
-type CheckInResult = ArrivalCheckInResponse | SessionCheckInResponse | SeminarCheckInResponse | null;
+type CheckInResult = SessionCheckInResponse | SeminarCheckInResponse | null;
+
+// Session verification codes (in a real app, these would come from an API)
+const SESSION_VERIFICATION_CODES: Record<string, string> = {
+  // You can define codes per session ID or use a default code
+  // Format: 'sessionId': 'code'
+  // Example:
+  // 'session_123': '1234',
+  // 'session_456': '5678',
+  // Or use a global code for all sessions:
+  // 'default': '1234'
+};
+
+const DEFAULT_SESSION_CODE = '2626'; // Default 4-digit code for all sessions
 
 const CHECKIN_OPTIONS: CheckinOption[] = [
-  {
-    id: 'arrival',
-    label: 'Arrival Check-in',
-    icon: <UserCheck className="h-5 w-5" />,
-    description: 'Check-in student arrival and assign room',
-    color: 'bg-emerald-500',
-  },
   {
     id: 'session',
     label: 'Session Attendance',
@@ -80,7 +87,6 @@ const CHECKIN_OPTIONS: CheckinOption[] = [
 export default function CheckInPage() {
   const {
     searchByNLS,
-    checkInArrival,
     checkInSession,
     checkInSeminar,
     isCheckingIn,
@@ -101,11 +107,11 @@ export default function CheckInPage() {
   } = useSession();
 
   const [checkinModalOpen, setCheckinModalOpen] = useState(false);
-  const [checkinType, setCheckinType] = useState<CheckinType>('arrival');
+  const [checkinType, setCheckinType] = useState<CheckinType>('seminar');
   const [nlsIdInput, setNlsIdInput] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [foundAttendee, setFoundAttendee] = useState<AttendeeSearchResult | null>(null);
-  const [checkinStep, setCheckinStep] = useState<'select' | 'input' | 'confirm' | 'success'>('select');
+  const [checkinStep, setCheckinStep] = useState<'select' | 'input' | 'verify' | 'confirm' | 'success'>('select');
   const [checkinError, setCheckinError] = useState<string | null>(null);
   const [selectedSessionId, setSelectedSessionId] = useState('');
   const [selectedSeminarId, setSelectedSeminarId] = useState('');
@@ -115,7 +121,30 @@ export default function CheckInPage() {
   const [lastCheckedInName, setLastCheckedInName] = useState<string | null>(null);
   const [isLoadingSeminars, setIsLoadingSeminars] = useState(false);
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
+  const [recentlyCheckedIn, setRecentlyCheckedIn] = useState<Array<{name: string, id: string, time: string}>>([]);
+  const [quickCheckinMode, setQuickCheckinMode] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<number>(1);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationAttempts, setVerificationAttempts] = useState(0);
+  const [isVerified, setIsVerified] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const codeInputRef = useRef<HTMLInputElement>(null);
+
+  // Get unique days from seminars
+  const availableDays = useMemo(() => {
+    const days = new Set<number>();
+    seminars.forEach((s: Seminar) => {
+      if (s.day) days.add(s.day);
+    });
+    return Array.from(days).sort((a, b) => a - b);
+  }, [seminars]);
+
+  // Filter seminars by selected day
+  const filteredSeminars = useMemo(() => {
+    if (!selectedDay) return seminars;
+    return seminars.filter((s: Seminar) => s.day === selectedDay);
+  }, [seminars, selectedDay]);
 
   // Fetch sessions when modal opens for session check-in
   useEffect(() => {
@@ -183,6 +212,16 @@ export default function CheckInPage() {
     return sessions.find((s: Session) => s._id === selectedSessionId) || null;
   }, [selectedSessionId, sessions]);
 
+  // Get verification code for a session
+  const getSessionVerificationCode = useCallback((sessionId: string): string => {
+    // First check if there's a specific code for this session
+    if (SESSION_VERIFICATION_CODES[sessionId]) {
+      return SESSION_VERIFICATION_CODES[sessionId];
+    }
+    // Otherwise use the default code
+    return DEFAULT_SESSION_CODE;
+  }, []);
+
   // Fetch participants when a seminar is selected
   useEffect(() => {
     if (selectedSeminarId && selectedSeminarDetails) {
@@ -195,18 +234,22 @@ export default function CheckInPage() {
     if (checkinModalOpen && checkinStep === 'input') {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
+    if (checkinModalOpen && checkinStep === 'verify') {
+      setTimeout(() => codeInputRef.current?.focus(), 100);
+    }
   }, [checkinModalOpen, checkinStep]);
 
-  const handleOpenCheckinModal = (type: CheckinType = 'arrival') => {
+  // Reset verification state when session changes
+  useEffect(() => {
+    setIsVerified(false);
+    setVerificationCode('');
+    setVerificationAttempts(0);
+  }, [selectedSessionId]);
+
+  const handleOpenCheckinModal = (type: CheckinType = 'seminar') => {
     setCheckinType(type);
     setCheckinModalOpen(true);
-    
-    if (type === 'seminar' || type === 'session') {
-      setCheckinStep('select');
-    } else {
-      setCheckinStep('input');
-    }
-    
+    setCheckinStep('select');
     setNlsIdInput('');
     setFoundAttendee(null);
     setCheckinError(null);
@@ -217,6 +260,12 @@ export default function CheckInPage() {
     setLastCheckedInName(null);
     setIsLoadingSeminars(false);
     setIsLoadingSessions(false);
+    setQuickCheckinMode(false);
+    setRecentlyCheckedIn([]);
+    setSelectedDay(1);
+    setVerificationCode('');
+    setIsVerified(false);
+    setVerificationAttempts(0);
 
     if (type === 'seminar' && seminars.length === 0) {
       setIsLoadingSeminars(true);
@@ -244,6 +293,12 @@ export default function CheckInPage() {
     setLastCheckedInName(null);
     setIsLoadingSeminars(false);
     setIsLoadingSessions(false);
+    setQuickCheckinMode(false);
+    setRecentlyCheckedIn([]);
+    setSelectedDay(1);
+    setVerificationCode('');
+    setIsVerified(false);
+    setVerificationAttempts(0);
   };
 
   const handleSelectNext = () => {
@@ -255,23 +310,91 @@ export default function CheckInPage() {
       toast.error('Please select a seminar');
       return;
     }
-    setCheckinStep('input');
+    
+    // For session check-in, go to verification step first
+    if (checkinType === 'session') {
+      setCheckinStep('verify');
+      setCheckinError(null);
+      setVerificationCode('');
+      setIsVerified(false);
+      setTimeout(() => codeInputRef.current?.focus(), 100);
+    } else {
+      // For seminar check-in, go directly to input
+      setCheckinStep('input');
+      setCheckinError(null);
+      setNlsIdInput('');
+      setLastCheckedInName(null);
+      setQuickCheckinMode(true);
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  };
+
+  const handleVerifyCode = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!verificationCode || verificationCode.length !== 4) {
+      setCheckinError('Please enter a 4-digit verification code');
+      toast.error('Please enter a 4-digit verification code');
+      return;
+    }
+
+    setIsVerifying(true);
     setCheckinError(null);
-    setNlsIdInput('');
-    setLastCheckedInName(null);
-    setTimeout(() => inputRef.current?.focus(), 100);
+
+    try {
+      const expectedCode = getSessionVerificationCode(selectedSessionId);
+      
+      if (verificationCode === expectedCode) {
+        setIsVerified(true);
+        setVerificationAttempts(0);
+        toast.success('Verification successful!');
+        // Proceed to check-in
+        setCheckinStep('input');
+        setCheckinError(null);
+        setNlsIdInput('');
+        setQuickCheckinMode(true);
+        setTimeout(() => inputRef.current?.focus(), 100);
+      } else {
+        const newAttempts = verificationAttempts + 1;
+        setVerificationAttempts(newAttempts);
+        
+        if (newAttempts >= 3) {
+          setCheckinError('Too many failed attempts. Please contact an administrator.');
+          toast.error('Verification failed. Too many attempts.');
+          // Lock the session check-in
+          setCheckinStep('select');
+          toast.error('Session locked. Please select again or contact support.');
+        } else {
+          setCheckinError(`Invalid verification code. ${3 - newAttempts} attempts remaining.`);
+          toast.error(`Invalid code. ${3 - newAttempts} attempts remaining.`);
+          setVerificationCode('');
+          setTimeout(() => codeInputRef.current?.focus(), 100);
+        }
+      }
+    } catch (err) {
+      setCheckinError('Verification failed. Please try again.');
+      toast.error('Verification failed');
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   const handleResetForNext = () => {
-    setCheckinStep('select');
+    setCheckinStep('input');
     setNlsIdInput('');
     setFoundAttendee(null);
     setCheckinError(null);
     setCheckinResult(null);
     setParticipantStatus(null);
-    setLastCheckedInName(null);
+    setQuickCheckinMode(true);
+    setTimeout(() => inputRef.current?.focus(), 100);
+    
+    // Refresh data
     if (selectedSeminarId) {
       fetchParticipants(selectedSeminarId);
+    }
+    if (selectedSessionId) {
+      fetchSessions();
     }
   };
 
@@ -280,6 +403,13 @@ export default function CheckInPage() {
     
     if (!nlsIdInput.trim()) {
       toast.error('Please enter an NLS ID');
+      return;
+    }
+
+    // For session check-in, ensure verification is done
+    if (checkinType === 'session' && !isVerified) {
+      setCheckinError('Session verification required');
+      setCheckinStep('verify');
       return;
     }
 
@@ -313,6 +443,11 @@ export default function CheckInPage() {
             setParticipantStatus('already-attended');
             setCheckinError(`${attendee.first_name} ${attendee.last_name} already checked in`);
             toast.warning(`${attendee.first_name} ${attendee.last_name} already checked in`);
+            setTimeout(() => {
+              if (quickCheckinMode) {
+                handleResetForNext();
+              }
+            }, 2000);
             return;
           }
           
@@ -321,9 +456,33 @@ export default function CheckInPage() {
           toast.success(`${attendee.first_name} ${attendee.last_name} is registered`);
         } else {
           setParticipantStatus('not-registered');
-          setCheckinError(`${attendee.first_name} ${attendee.last_name} is not registered`);
+          setCheckinError(`${attendee.first_name} ${attendee.last_name} is not registered for this seminar`);
           toast.error(`${attendee.first_name} ${attendee.last_name} is not registered`);
+          setTimeout(() => {
+            if (quickCheckinMode) {
+              handleResetForNext();
+            }
+          }, 2000);
         }
+      } else if (checkinType === 'session' && selectedSessionDetails) {
+        const attendees = selectedSessionDetails.attendees || [];
+        const alreadyAttended = attendees.some(
+          (a: any) => a.unique_id === attendee.unique_id
+        );
+        
+        if (alreadyAttended) {
+          setCheckinError(`${attendee.first_name} ${attendee.last_name} already attended this session`);
+          toast.warning(`${attendee.first_name} ${attendee.last_name} already attended`);
+          setTimeout(() => {
+            if (quickCheckinMode) {
+              handleResetForNext();
+            }
+          }, 2000);
+          return;
+        }
+        
+        setCheckinStep('confirm');
+        toast.success(`Found ${attendee.first_name} ${attendee.last_name}`);
       } else {
         setCheckinStep('confirm');
         toast.success(`Found ${attendee.first_name} ${attendee.last_name}`);
@@ -354,7 +513,13 @@ export default function CheckInPage() {
           ...foundAttendee,
           ...attendee,
         } as AttendeeSearchResult);
-        setLastCheckedInName(attendee.full_name || `${attendee.first_name ?? ''} ${attendee.last_name ?? ''}`.trim());
+        const name = attendee.full_name || `${attendee.first_name ?? ''} ${attendee.last_name ?? ''}`.trim();
+        setLastCheckedInName(name);
+        
+        setRecentlyCheckedIn(prev => [
+          { name, id: foundAttendee.unique_id, time: new Date().toLocaleTimeString() },
+          ...prev.slice(0, 4)
+        ]);
       }
       
       setCheckinStep('success');
@@ -388,13 +553,18 @@ export default function CheckInPage() {
           ...foundAttendee,
           ...attendee,
         } as AttendeeSearchResult);
-        setLastCheckedInName(attendee.full_name || `${attendee.first_name ?? ''} ${attendee.last_name ?? ''}`.trim());
+        const name = attendee.full_name || `${attendee.first_name ?? ''} ${attendee.last_name ?? ''}`.trim();
+        setLastCheckedInName(name);
+        
+        setRecentlyCheckedIn(prev => [
+          { name, id: foundAttendee.unique_id, time: new Date().toLocaleTimeString() },
+          ...prev.slice(0, 4)
+        ]);
       }
       
       setCheckinStep('success');
       toast.success(`${foundAttendee.first_name} ${foundAttendee.last_name} checked in!`);
       
-      // Refresh sessions to update attendance count
       await fetchSessions();
     } catch (err: unknown) {
       console.error('Session check-in error:', err);
@@ -410,12 +580,7 @@ export default function CheckInPage() {
     if (!foundAttendee) return;
 
     try {
-      let result;
-      
       switch (checkinType) {
-        case 'arrival':
-          result = await checkInArrival(foundAttendee._id, 'manual');
-          break;
         case 'session':
           await handleSessionCheckin();
           return;
@@ -425,33 +590,15 @@ export default function CheckInPage() {
         default:
           return;
       }
-      
-      setCheckinResult(result);
-      
-      if (result?.data?.attendee) {
-        const attendeeData = result.data.attendee as Partial<AttendeeSearchResult> & { full_name?: string; first_name?: string; last_name?: string; dorm_cache?: AttendeeSearchResult['dorm_cache'] };
-        setFoundAttendee({
-          ...foundAttendee,
-          ...attendeeData,
-          dorm_cache: attendeeData.dorm_cache || foundAttendee.dorm_cache,
-        } as AttendeeSearchResult);
-        setLastCheckedInName(attendeeData.first_name
-          ? `${attendeeData.first_name} ${attendeeData.last_name ?? ''}`.trim()
-          : attendeeData.full_name || '');
-      }
-      
-      setCheckinStep('success');
-      toast.success(`${foundAttendee.first_name} ${foundAttendee.last_name} checked in!`);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Check-in failed';
       toast.error(errorMessage);
       setCheckinError(errorMessage);
     }
-  }, [foundAttendee, checkinType, checkInArrival, handleSessionCheckin, handleSeminarCheckin]);
+  }, [foundAttendee, checkinType, handleSessionCheckin, handleSeminarCheckin]);
 
   const getCheckinColor = () => {
     switch (checkinType) {
-      case 'arrival': return 'bg-emerald-500';
       case 'session': return 'bg-blue-500';
       case 'seminar': return 'bg-purple-500';
       default: return 'bg-[#0C0D0D]';
@@ -460,14 +607,12 @@ export default function CheckInPage() {
 
   const getCheckinLabel = () => {
     switch (checkinType) {
-      case 'arrival': return 'Arrival Check-in';
       case 'session': return 'Session Attendance';
       case 'seminar': return 'Seminar Attendance';
       default: return 'Check-in';
     }
   };
 
-  // Derived display attendee type
   type DisplayAttendee = AttendeeSearchResult | {
     _id: string;
     unique_id: string;
@@ -505,7 +650,6 @@ export default function CheckInPage() {
 
   const displayAttendee = getDisplayAttendee();
 
-  // Session options
   const sessionOptions: SessionOption[] = sessions.map((s: Session) => ({
     value: s._id,
     label: `${s.name} (Day ${s.day})`,
@@ -515,24 +659,24 @@ export default function CheckInPage() {
     isActive: s.is_active,
   }));
 
-  // Seminar options
-  const seminarOptions = seminars.map((s: Seminar) => {
+  const seminarOptions = filteredSeminars.map((s: Seminar) => {
     const participants = s.participants || [];
     const registered = participants.length;
     const capacity = s.capacity || 0;
+    const attended = participants.filter((p: Participant) => p.attended).length;
     const isFull = registered >= capacity;
     const status = isFull ? '🔴 Full' : `🟢 ${registered}/${capacity}`;
     
     return {
       value: s._id,
-      label: `${s.name} (Day ${s.day}) - ${status}`,
+      label: `${s.name} - ${status}`,
       isFull,
       registered,
+      attended,
       capacity,
     };
   });
 
-  // Narrowed check-in response pieces
   const seminarData = (checkinResult?.data as SeminarCheckInResponse['data'])?.seminar;
   const sessionData = (checkinResult?.data as SessionCheckInResponse['data'])?.session;
   const checkInData = (checkinResult?.data as SessionCheckInResponse['data'] | SeminarCheckInResponse['data'])?.check_in;
@@ -552,7 +696,7 @@ export default function CheckInPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#FAFAFA] p-4">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl w-full">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl w-full">
         {CHECKIN_OPTIONS.map((option) => (
           <button
             key={option.id}
@@ -570,24 +714,23 @@ export default function CheckInPage() {
         ))}
       </div>
 
-      {/* ==================== CHECK-IN MODAL ==================== */}
+      {/* CHECK-IN MODAL */}
       {checkinModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0C0D0D]/70 backdrop-blur-md">
           <div className="bg-white rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl border border-white">
             <div className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-[#0C0D0D]/5 px-6 py-4 flex items-center justify-between z-10">
               <div className="flex items-center gap-3">
                 <div className={`p-2 rounded-2xl ${getCheckinColor()} text-white`}>
-                  {checkinType === 'arrival' && <UserCheck className="h-5 w-5" />}
                   {checkinType === 'session' && <Clock className="h-5 w-5" />}
                   {checkinType === 'seminar' && <BookOpen className="h-5 w-5" />}
                 </div>
                 <div>
                   <h3 className="font-extrabold text-[#0C0D0D]">{getCheckinLabel()}</h3>
                   <p className="text-xs text-[#0C0D0D]/50 font-medium">
-                    {checkinStep === 'select' && checkinType === 'seminar' && 'Select a seminar'}
-                    {checkinStep === 'select' && checkinType === 'session' && 'Select a session'}
-                    {checkinStep === 'input' && 'Enter NLS ID'}
-                    {checkinStep === 'confirm' && 'Verify student information'}
+                    {checkinStep === 'select' && 'Select a session or seminar'}
+                    {checkinStep === 'verify' && 'Enter verification code'}
+                    {checkinStep === 'input' && quickCheckinMode ? 'Quick check-in mode' : 'Enter NLS ID'}
+                    {checkinStep === 'confirm' && 'Verify participant information'}
                     {checkinStep === 'success' && 'Check-in complete!'}
                   </p>
                 </div>
@@ -625,7 +768,6 @@ export default function CheckInPage() {
                     </label>
                     
                     {checkinType === 'session' ? (
-                      // Session Selection
                       isLoadingSessions || sessionsLoading ? (
                         <div className="flex items-center justify-center py-4">
                           <Loader2 className="h-5 w-5 text-[#0C0D0D] animate-spin" />
@@ -649,37 +791,72 @@ export default function CheckInPage() {
                         </select>
                       )
                     ) : (
-                      // Seminar Selection
-                      isLoadingSeminars || seminarsLoading ? (
-                        <div className="flex items-center justify-center py-4">
-                          <Loader2 className="h-5 w-5 text-[#0C0D0D] animate-spin" />
-                        </div>
-                      ) : seminarOptions.length === 0 ? (
-                        <div className="text-center py-4 text-sm text-[#0C0D0D]/50">
-                          {seminarsError ? 'Error loading seminars' : 'No seminars available'}
-                        </div>
-                      ) : (
-                        <select
-                          value={selectedSeminarId}
-                          onChange={(e) => setSelectedSeminarId(e.target.value)}
-                          className="w-full px-4 py-3 bg-[#FAFAFA] border border-[#0C0D0D]/10 rounded-2xl text-sm font-semibold text-[#0C0D0D] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0C0D0D] transition-all appearance-none"
-                        >
-                          <option value="">Select a seminar...</option>
-                          {seminarOptions.map((opt: any) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                      )
+                      <div className="space-y-3">
+                        {availableDays.length > 0 && (
+                          <div className="flex gap-2">
+                            {availableDays.map((day) => (
+                              <button
+                                key={day}
+                                onClick={() => {
+                                  setSelectedDay(day);
+                                  setSelectedSeminarId('');
+                                }}
+                                className={`flex-1 px-3 py-2 rounded-xl text-sm font-bold transition-all ${
+                                  selectedDay === day
+                                    ? 'bg-[#0C0D0D] text-white'
+                                    : 'bg-[#FAFAFA] text-[#0C0D0D]/60 hover:bg-[#ECF4EE] border border-[#0C0D0D]/10'
+                                }`}
+                              >
+                                <Calendar className="h-3 w-3 inline mr-1" />
+                                Day {day}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {isLoadingSeminars || seminarsLoading ? (
+                          <div className="flex items-center justify-center py-4">
+                            <Loader2 className="h-5 w-5 text-[#0C0D0D] animate-spin" />
+                          </div>
+                        ) : seminarOptions.length === 0 ? (
+                          <div className="text-center py-4 text-sm text-[#0C0D0D]/50">
+                            {seminarsError 
+                              ? 'Error loading seminars' 
+                              : `No seminars available for Day ${selectedDay}`}
+                          </div>
+                        ) : (
+                          <select
+                            value={selectedSeminarId}
+                            onChange={(e) => setSelectedSeminarId(e.target.value)}
+                            className="w-full px-4 py-3 bg-[#FAFAFA] border border-[#0C0D0D]/10 rounded-2xl text-sm font-semibold text-[#0C0D0D] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0C0D0D] transition-all appearance-none"
+                          >
+                            <option value="">Select a seminar for Day {selectedDay}...</option>
+                            {seminarOptions.map((opt: any) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
                     )}
                     
                     {checkinType === 'seminar' && selectedSeminarDetails && (
                       <div className="mt-3 p-3 bg-[#FAFAFA] rounded-xl border border-[#0C0D0D]/5">
                         <div className="flex justify-between text-sm">
+                          <span className="text-[#0C0D0D]/60">Day</span>
+                          <span className="font-bold text-[#0C0D0D]">Day {selectedSeminarDetails.day}</span>
+                        </div>
+                        <div className="flex justify-between text-sm mt-1">
                           <span className="text-[#0C0D0D]/60">Registered</span>
                           <span className="font-bold text-[#0C0D0D]">
                             {selectedSeminarDetails.participants?.length || 0} / {selectedSeminarDetails.capacity || 0}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm mt-1">
+                          <span className="text-[#0C0D0D]/60">Attended</span>
+                          <span className="font-bold text-[#0C0D0D]">
+                            {selectedSeminarDetails.participants?.filter((p: Participant) => p.attended).length || 0}
                           </span>
                         </div>
                         <div className="flex justify-between text-sm mt-1">
@@ -732,41 +909,211 @@ export default function CheckInPage() {
                     className="w-full bg-[#0C0D0D] hover:bg-[#0C0D0D]/90 text-white rounded-2xl py-3 font-extrabold disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <ArrowRight className="h-4 w-4 mr-2" />
-                    Continue to Check-in
+                    {checkinType === 'session' ? 'Verify & Continue' : 'Start Quick Check-in'}
                   </Button>
+
+                  {checkinType === 'session' && (
+                    <div className="text-center">
+                      <p className="text-xs text-[#0C0D0D]/40 flex items-center justify-center gap-1">
+                        <Shield className="h-3 w-3" />
+                        Session verification required before check-in
+                      </p>
+                    </div>
+                  )}
+
+                  {checkinType === 'seminar' && (
+                    <div className="text-center">
+                      <p className="text-xs text-[#0C0D0D]/40">
+                        Quick check-in mode will automatically advance to the next participant
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Step 2: Input NLS ID */}
-              {checkinStep === 'input' && (
-                <form onSubmit={handleNlsIdSubmit} className="space-y-4">
-                  {(checkinType === 'seminar' && selectedSeminarDetails) && (
-                    <div className="bg-[#ECF4EE] rounded-xl p-3 text-center">
-                      <p className="text-xs text-[#0C0D0D]/60">Checking in to</p>
-                      <p className="text-sm font-bold text-[#0C0D0D]">{selectedSeminarDetails.name}</p>
-                      <p className="text-xs text-[#0C0D0D]/50">Day {selectedSeminarDetails.day}</p>
+              {/* Step 1.5: Verification Code (Session only) */}
+              {checkinStep === 'verify' && (
+                <form onSubmit={handleVerifyCode} className="space-y-4">
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <Shield className="h-8 w-8 text-blue-600" />
+                    </div>
+                    <h4 className="text-lg font-extrabold text-[#0C0D0D]">Session Verification</h4>
+                    <p className="text-sm text-[#0C0D0D]/60 mt-1">
+                      Enter the 4-digit verification code for this session
+                    </p>
+                  </div>
+
+                  {selectedSessionDetails && (
+                    <div className="bg-[#FAFAFA] rounded-xl p-3 border border-[#0C0D0D]/5">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-[#0C0D0D]/60">Session</span>
+                        <span className="font-bold text-[#0C0D0D]">{selectedSessionDetails.name}</span>
+                      </div>
+                      <div className="flex justify-between text-sm mt-1">
+                        <span className="text-[#0C0D0D]/60">Day</span>
+                        <span className="font-bold text-[#0C0D0D]">Day {selectedSessionDetails.day}</span>
+                      </div>
+                      <div className="flex justify-between text-sm mt-1">
+                        <span className="text-[#0C0D0D]/60">Time</span>
+                        <span className="font-bold text-[#0C0D0D]">
+                          {selectedSessionDetails.start_time} - {selectedSessionDetails.end_time}
+                        </span>
+                      </div>
                     </div>
                   )}
 
-                  {(checkinType === 'session' && selectedSessionDetails) && (
+                  <div>
+                    <label className="block text-xs font-bold text-[#0C0D0D] mb-1.5 uppercase tracking-wider">
+                      Verification Code <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      ref={codeInputRef}
+                      type="password"
+                      maxLength={4}
+                      value={verificationCode}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '');
+                        if (value.length <= 4) {
+                          setVerificationCode(value);
+                        }
+                      }}
+                      placeholder="Enter 4-digit code"
+                      className="w-full px-4 py-3 bg-[#FAFAFA] border border-[#0C0D0D]/10 rounded-2xl text-sm font-semibold text-[#0C0D0D] focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all placeholder:text-[#0C0D0D]/40 font-mono text-center text-2xl tracking-widest"
+                      autoFocus
+                    />
+                    <div className="flex justify-center gap-2 mt-2">
+                      {[0, 1, 2, 3].map((index) => (
+                        <div
+                          key={index}
+                          className={`w-12 h-12 rounded-xl border-2 flex items-center justify-center text-2xl font-bold transition-all ${
+                            verificationCode[index]
+                              ? 'border-blue-500 bg-blue-50 text-blue-700'
+                              : 'border-[#0C0D0D]/10 bg-[#FAFAFA]'
+                          }`}
+                        >
+                          {verificationCode[index] || '•'}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-[#0C0D0D]/40 mt-2 text-center">
+                      {verificationAttempts > 0 && (
+                        <span className="text-rose-600">
+                          {3 - verificationAttempts} attempts remaining
+                        </span>
+                      )}
+                    </p>
+                  </div>
+
+                  {checkinError && (
+                    <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3 flex items-start gap-2">
+                      <AlertCircle className="h-4 w-4 text-rose-600 flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-rose-600 font-medium">{checkinError}</p>
+                    </div>
+                  )}
+
+                  <div className="flex gap-3">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => {
+                        setCheckinStep('select');
+                        setVerificationCode('');
+                        setCheckinError(null);
+                      }}
+                      className="flex-1 rounded-2xl border-[#0C0D0D]/10 bg-[#FAFAFA] text-[#0C0D0D] font-bold"
+                    >
+                      ← Change Session
+                    </Button>
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      disabled={isVerifying || verificationCode.length !== 4}
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl py-3 font-extrabold disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isVerifying ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Verifying...
+                        </>
+                      ) : (
+                        <>
+                          <Key className="h-4 w-4 mr-2" />
+                          Verify
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  <div className="border-t border-[#0C0D0D]/5 pt-3 text-center">
+                    <p className="text-xs text-[#0C0D0D]/30">
+                      Contact the session facilitator for the verification code
+                    </p>
+                  </div>
+                </form>
+              )}
+
+              {/* Step 2: Input NLS ID - Quick Check-in Mode */}
+              {checkinStep === 'input' && (
+                <form onSubmit={handleNlsIdSubmit} className="space-y-4">
+                  {checkinType === 'seminar' && selectedSeminarDetails && (
+                    <div className="bg-[#ECF4EE] rounded-xl p-3 text-center">
+                      <p className="text-xs text-[#0C0D0D]/60">Checking in to</p>
+                      <p className="text-sm font-bold text-[#0C0D0D]">{selectedSeminarDetails.name}</p>
+                      <div className="flex justify-center gap-4 mt-1">
+                        <span className="text-xs text-[#0C0D0D]/50">Day {selectedSeminarDetails.day}</span>
+                        <span className="text-xs text-[#0C0D0D]/50">
+                          {selectedSeminarDetails.participants?.filter((p: Participant) => p.attended).length || 0} checked in
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {checkinType === 'session' && selectedSessionDetails && (
                     <div className="bg-[#ECF4EE] rounded-xl p-3 text-center">
                       <p className="text-xs text-[#0C0D0D]/60">Marking attendance for</p>
                       <p className="text-sm font-bold text-[#0C0D0D]">{selectedSessionDetails.name}</p>
-                      <p className="text-xs text-[#0C0D0D]/50">Day {selectedSessionDetails.day} · {selectedSessionDetails.start_time} - {selectedSessionDetails.end_time}</p>
+                      <div className="flex justify-center gap-4 mt-1">
+                        <span className="text-xs text-[#0C0D0D]/50">Day {selectedSessionDetails.day}</span>
+                        <span className="text-xs text-[#0C0D0D]/50">
+                          {selectedSessionDetails.attendees?.length || 0} attended
+                        </span>
+                      </div>
+                      {isVerified && (
+                        <div className="mt-1">
+                          <Badge variant="success" className="bg-emerald-100 text-emerald-700 border-emerald-200">
+                            ✅ Verified
+                          </Badge>
+                        </div>
+                      )}
                     </div>
                   )}
+
+                  <div className="flex items-center justify-center gap-2">
+                    <Badge variant="info" className="bg-[#0C0D0D] text-white border-0 px-3 py-1">
+                      <Repeat className="h-3 w-3 mr-1" />
+                      Quick Check-in Mode
+                    </Badge>
+                    {checkinType === 'session' && (
+                      <Badge variant="info" className="bg-blue-100 text-blue-700 border-blue-200">
+                        <Shield className="h-3 w-3 mr-1" />
+                        Verified
+                      </Badge>
+                    )}
+                  </div>
 
                   <div className="text-center">
                     <div className="w-16 h-16 bg-[#ECF4EE] rounded-full flex items-center justify-center mx-auto mb-3">
                       <Fingerprint className="h-8 w-8 text-[#0C0D0D]" />
                     </div>
                     <p className="text-sm text-[#0C0D0D]/60 font-medium">
-                      {checkinType === 'seminar' 
-                        ? 'Enter NLS ID of registered participant'
-                        : checkinType === 'session'
-                        ? 'Enter the student\'s NLS ID for session attendance'
-                        : 'Enter the student\'s NLS ID'}
+                      Enter NLS ID to check in
                     </p>
+                    {recentlyCheckedIn.length > 0 && (
+                      <div className="mt-2 text-xs text-[#0C0D0D]/40">
+                        Last checked in: <span className="font-bold text-[#0C0D0D]">{recentlyCheckedIn[0].name}</span>
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -794,39 +1141,59 @@ export default function CheckInPage() {
                     </div>
                   )}
 
-                  {(checkinType === 'seminar' || checkinType === 'session') && (
+                  <div className="flex gap-3">
                     <Button
                       type="button"
                       variant="secondary"
                       onClick={() => {
-                        setCheckinStep('select');
+                        if (checkinType === 'session') {
+                          setCheckinStep('verify');
+                          setVerificationCode('');
+                          setIsVerified(false);
+                        } else {
+                          setCheckinStep('select');
+                        }
                         setNlsIdInput('');
                         setCheckinError(null);
+                        setQuickCheckinMode(false);
                       }}
-                      className="w-full rounded-2xl border-[#0C0D0D]/10 bg-[#FAFAFA] text-[#0C0D0D] font-bold"
+                      className="flex-1 rounded-2xl border-[#0C0D0D]/10 bg-[#FAFAFA] text-[#0C0D0D] font-bold"
                     >
-                      ← Back to Selection
+                      ← {checkinType === 'session' ? 'Verify Again' : 'Change'}
                     </Button>
-                  )}
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      disabled={isSearching}
+                      className="flex-1 bg-[#0C0D0D] hover:bg-[#0C0D0D]/90 text-white rounded-2xl py-3 font-extrabold"
+                    >
+                      {isSearching ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Searching...
+                        </>
+                      ) : (
+                        <>
+                          <Search className="h-4 w-4 mr-2" />
+                          Find & Check-in
+                        </>
+                      )}
+                    </Button>
+                  </div>
 
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    disabled={isSearching}
-                    className="w-full bg-[#0C0D0D] hover:bg-[#0C0D0D]/90 text-white rounded-2xl py-3 font-extrabold"
-                  >
-                    {isSearching ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Searching...
-                      </>
-                    ) : (
-                      <>
-                        <Search className="h-4 w-4 mr-2" />
-                        {checkinType === 'seminar' ? 'Check Participant' : 'Find Student'}
-                      </>
-                    )}
-                  </Button>
+                  {recentlyCheckedIn.length > 1 && (
+                    <div className="border-t border-[#0C0D0D]/5 pt-3">
+                      <p className="text-xs text-[#0C0D0D]/40 mb-2">Recent Check-ins</p>
+                      <div className="space-y-1">
+                        {recentlyCheckedIn.slice(1).map((item, index) => (
+                          <div key={index} className="flex justify-between text-xs">
+                            <span className="text-[#0C0D0D]">{item.name}</span>
+                            <span className="text-[#0C0D0D]/40">{item.time}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </form>
               )}
 
@@ -867,6 +1234,11 @@ export default function CheckInPage() {
                       </div>
                       <div className="text-xs text-[#0C0D0D]/60">
                         <span className="font-bold">Time:</span> {selectedSessionDetails.start_time} - {selectedSessionDetails.end_time}
+                      </div>
+                      <div className="flex justify-center">
+                        <Badge variant="success" className="bg-emerald-100 text-emerald-700 border-emerald-200">
+                          ✅ Verified Session
+                        </Badge>
                       </div>
                     </div>
                   )}
@@ -970,35 +1342,6 @@ export default function CheckInPage() {
                       </div>
                     )}
 
-                    {checkinType === 'arrival' && displayAttendee?.dorm_cache && (
-                      <>
-                        <div className="flex justify-between text-sm border-t border-[#0C0D0D]/10 pt-1.5 mt-1">
-                          <span className="text-[#0C0D0D]/60">Building</span>
-                          <span className="font-bold text-[#0C0D0D]">
-                            {displayAttendee.dorm_cache?.buildingName || 'Not assigned'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-[#0C0D0D]/60">Floor</span>
-                          <span className="font-bold text-[#0C0D0D]">
-                            {displayAttendee.dorm_cache?.floor || 'N/A'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-[#0C0D0D]/60">Room</span>
-                          <span className="font-bold text-[#0C0D0D]">
-                            {displayAttendee.dorm_cache?.roomNumber || 'Not assigned'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-[#0C0D0D]/60">Bed</span>
-                          <span className="font-bold text-[#0C0D0D]">
-                            {displayAttendee.dorm_cache?.bedNumber || 'N/A'}
-                          </span>
-                        </div>
-                      </>
-                    )}
-
                     <div className="flex justify-between text-sm border-t border-[#0C0D0D]/10 pt-1.5 mt-1">
                       <span className="text-[#0C0D0D]/60">Time</span>
                       <span className="font-bold text-[#0C0D0D]">{new Date().toLocaleTimeString()}</span>
@@ -1015,21 +1358,19 @@ export default function CheckInPage() {
                       Done
                     </Button>
                     
-                    {(checkinType === 'seminar' || checkinType === 'session') && (
-                      <Button
-                        variant="primary"
-                        onClick={handleResetForNext}
-                        className={`flex-1 text-white rounded-2xl py-3 font-extrabold ${
-                          checkinType === 'seminar' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'
-                        }`}
-                      >
-                        <Repeat className="h-4 w-4 mr-2" />
-                        Check Another
-                      </Button>
-                    )}
+                    <Button
+                      variant="primary"
+                      onClick={handleResetForNext}
+                      className={`flex-1 text-white rounded-2xl py-3 font-extrabold ${
+                        checkinType === 'seminar' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'
+                      }`}
+                    >
+                      <Repeat className="h-4 w-4 mr-2" />
+                      Check Next
+                    </Button>
                   </div>
 
-                  {(checkinType === 'seminar' || checkinType === 'session') && lastCheckedInName && (
+                  {lastCheckedInName && (
                     <p className="text-xs text-[#0C0D0D]/40 mt-2">
                       Last checked in: <span className="font-bold text-[#0C0D0D]">{lastCheckedInName}</span>
                     </p>
